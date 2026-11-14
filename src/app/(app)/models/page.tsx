@@ -52,7 +52,7 @@ export default function ModelsPage() {
             />
           </label>
 
-          <div className="-mx-4 mt-3 flex gap-2 overflow-x-auto px-4 pb-1">
+          <div data-scroll-x className="-mx-4 mt-3 flex gap-2 overflow-x-auto px-4 pb-1">
             {[null, ...tags].map((tg) => (
               <button
                 key={tg ?? "all"}

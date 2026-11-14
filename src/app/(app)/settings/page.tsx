@@ -268,7 +268,7 @@ export default function SettingsPage() {
           {profile.isAdmin && (
             <>
             <Section title={t("settings.defaultModel")} help={t("settings.defaultModelHelp")}>
-              <div role="radiogroup" aria-label={t("settings.defaultModel")} className="grid gap-2 sm:grid-cols-2">
+              <div role="radiogroup" aria-label={t("settings.defaultModel")} className="grid grid-cols-1 gap-2 sm:grid-cols-2">
                 {visible.map((m) => {
                   const selected = m.id === settings.defaultModelId;
                   return (
