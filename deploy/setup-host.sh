@@ -26,6 +26,7 @@ id familychat >/dev/null 2>&1 || sudo useradd --system --user-group --no-create-
 sudo install -d -o "$ADMIN" -g "$ADMIN" -m 755 "$ROOT" "$ROOT/releases" "$ROOT/deploy"
 sudo install -o root -g root -m 755 "$DEPLOY_DIR/deploy-gate.sh" "$ROOT/deploy/deploy-gate"
 sudo install -o root -g root -m 755 "$DEPLOY_DIR/activate-release.sh" "$ROOT/deploy/activate-release.sh"
+sudo install -o root -g root -m 755 "$DEPLOY_DIR/prune-releases.sh" "$ROOT/deploy/prune-releases.sh"
 sudo install -o root -g root -m 755 "$DEPLOY_DIR/update-geo-allowlist.py" "$ROOT/deploy/update-geo-allowlist.py"
 
 sudo install -d -o root -g familychat -m 750 /etc/familychatui

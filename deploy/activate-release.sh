@@ -11,7 +11,6 @@ RELEASE_DIR="$ROOT/releases/$RELEASE_ID"
 CURRENT_LINK="$ROOT/current"
 SERVICE="familychatui"
 HEALTH_URL="http://127.0.0.1:3200/api/session"
-KEEP_RELEASES=5
 
 if [[ ! "$RELEASE_ID" =~ ^[0-9a-f]{7,40}(-dirty)?-[0-9]{14}$ ]]; then
     printf 'Invalid release ID: %s\n' "$RELEASE_ID" >&2
@@ -52,12 +51,8 @@ if ! healthy; then
     exit 1
 fi
 
-# Keep the newest releases for rollback; never delete the active one.
-ACTIVE_DIR="$(readlink -f "$CURRENT_LINK")"
-ls -1dt "$ROOT"/releases/*/ 2>/dev/null | sed 's:/$::' | tail -n +$((KEEP_RELEASES + 1)) |
-    while IFS= read -r old; do
-        [[ "$(readlink -f "$old")" == "$ACTIVE_DIR" ]] && continue
-        rm -rf "$old"
-    done
+# Keep the 5 newest releases, plus everything from the last 7 days; never the active one.
+bash "$ROOT/deploy/prune-releases.sh" "$ROOT/releases" "$RELEASE_DIR" | sed 's:^:Removed old release :' ||
+    printf 'Old release cleanup failed (the new release is live)\n' >&2
 
 printf 'Activated release %s\n' "$RELEASE_ID"

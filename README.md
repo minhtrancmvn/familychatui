@@ -61,7 +61,7 @@ The `deploy/` folder targets a single Ubuntu server with nginx, certbot and syst
 
 `setup-host.sh` also limits the site to visitors from Vietnam and Singapore: nginx answers 403 to everyone else, using DB-IP's country list (refreshed monthly by `familychatui-geo.timer`; edit `COUNTRIES` in `deploy/update-geo-allowlist.py` to change it).
 
-The server never runs npm. Releases are uploaded through `deploy-gate`, the only command the CI key may run, and `activate-release.sh` rolls back if the new release doesn't answer its health check.
+The server never runs npm. Releases are uploaded through `deploy-gate`, the only command the CI key may run, and `activate-release.sh` rolls back if the new release doesn't answer its health check. After a good release, `prune-releases.sh` keeps the 5 newest releases plus any from the last 7 days (never the live one).
 
 ## Security notes
 
