@@ -1,0 +1,93 @@
+name: CI
+
+# Pull requests: typecheck, lint, build. Pushes to main: the same, then deploy to the server.
+# The deploy key only reaches /opt/familychatui/deploy/deploy-gate (upload/activate a release); see
+# deploy/setup-host.sh. Secrets: DEPLOY_HOST (user@host), DEPLOY_SSH_KEY, DEPLOY_KNOWN_HOSTS.
+# Variables: DEPLOY_DOMAIN (the site's hostname; without it the deploy job is skipped), GTM_ID (optional
+# Google Tag Manager container, baked into the build).
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+permissions:
+  contents: read
+
+jobs:
+  quality:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - run: npx next typegen
+      - run: npx tsc --noEmit
+      - run: npm run lint
+      - run: npm run build
+      - run: npm audit --omit=dev --audit-level=high
+
+  deploy:
+    name: Deploy
+    needs: quality
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main' && vars.DEPLOY_DOMAIN != ''
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    environment:
+      name: production
+      url: https://${{ vars.DEPLOY_DOMAIN }}
+    concurrency:
+      group: production
+      cancel-in-progress: false
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        with:
+          ref: ${{ github.sha }}
+          persist-credentials: false
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+
+      - name: Set up SSH
+        env:
+          DEPLOY_SSH_KEY: ${{ secrets.DEPLOY_SSH_KEY }}
+          DEPLOY_KNOWN_HOSTS: ${{ secrets.DEPLOY_KNOWN_HOSTS }}
+        run: |
+          set -eu
+          test -n "$DEPLOY_SSH_KEY"
+          test -n "$DEPLOY_KNOWN_HOSTS"
+          install -d -m 700 "$HOME/.ssh"
+          printf '%s\n' "$DEPLOY_SSH_KEY" > "$HOME/.ssh/deploy_key"
+          chmod 600 "$HOME/.ssh/deploy_key"
+          printf '%s\n' "$DEPLOY_KNOWN_HOSTS" > "$HOME/.ssh/known_hosts"
+          chmod 600 "$HOME/.ssh/known_hosts"
+
+      - name: Build, upload and activate
+        env:
+          DEPLOY_HOST: ${{ secrets.DEPLOY_HOST }}
+          NEXT_PUBLIC_GTM_ID: ${{ vars.GTM_ID }}
+        run: DEPLOY_KEY="$HOME/.ssh/deploy_key" deploy/deploy.sh
+
+      - name: Check the live site
+        env:
+          DEPLOY_DOMAIN: ${{ vars.DEPLOY_DOMAIN }}
+        run: |
+          set -eu
+          for i in $(seq 1 10); do
+            if curl -fsS -A "Mozilla/5.0 familychatui-ci" "https://$DEPLOY_DOMAIN/api/session" | grep -q '"unlocked"'; then exit 0; fi
+            sleep 3
+          done
+          echo "Live site check failed" >&2
+          exit 1
+
+      - name: Remove SSH key
+        if: always()
+        run: rm -f "$HOME/.ssh/deploy_key"

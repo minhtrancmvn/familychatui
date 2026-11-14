@@ -1,0 +1,40 @@
+[Unit]
+Description=familychatui (Next.js standalone)
+After=network.target docker.service
+
+[Service]
+Type=simple
+# Own user without sudo: a bad release (or a leaked CI key) can't reach the rest of the server.
+User=familychat
+Group=familychat
+WorkingDirectory=/opt/familychatui/current
+# NINEROUTER_API_KEY and FAMILY_PASSWORD (root:familychat 0640, never committed).
+EnvironmentFile=/etc/familychatui/env
+Environment=NODE_ENV=production
+Environment=PORT=3200
+Environment=HOSTNAME=127.0.0.1
+Environment=DATA_DIR=/var/lib/familychatui
+# LibreOffice (Office files -> text) wants a writable home.
+Environment=HOME=/var/lib/familychatui
+Environment=NINEROUTER_BASE_URL=http://127.0.0.1:20128/v1
+# node:sqlite prints an ExperimentalWarning on Node 22.
+Environment=NODE_OPTIONS=--disable-warning=ExperimentalWarning
+ExecStart=/usr/bin/node server.js
+Restart=on-failure
+RestartSec=5
+# Node exits with 143 on SIGTERM (systemctl stop/restart); that's a clean stop, not a failure.
+SuccessExitStatus=143
+
+StateDirectory=familychatui
+StateDirectoryMode=0700
+NoNewPrivileges=yes
+PrivateTmp=yes
+ProtectSystem=strict
+ProtectHome=yes
+
+# The host has 2 GB RAM (+2 GB swap) shared with 9router and other apps. The app uses ~100 MB; turning
+# an Office file into text runs LibreOffice for ~2 s at ~220 MB, one file at a time.
+MemoryMax=700M
+
+[Install]
+WantedBy=multi-user.target

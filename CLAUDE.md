@@ -1,0 +1,119 @@
+# familychatui
+
+Private, Poe-style chat app for the owner's family. Its only model provider is a self-hosted 9router (an OpenAI-compatible LLM router).
+
+## Status
+
+- In production (domain and host in `docs/private-host.md`). Every push to `main` deploys through GitHub Actions (`.github/workflows/ci.yml`); work on branches and merge. Backend: SQLite (`node:sqlite`), API routes, real 9router streaming, server-side auth, PDF/Office attachments.
+- Phases, decisions and errors are tracked in `task_plan.md` (local only, gitignored). Update it as work progresses.
+- 9router runs on the server (Docker, `127.0.0.1:20128`). Local development reaches it through the SSH tunnel (local port 20129); see `.env.local`. Read the decisions below before any backend or deploy work.
+
+## 9router context (read first)
+
+@docs/9router-decisions.md
+
+`docs/9router-decisions.md` and the server specifics below are gitignored, so they may be missing on other machines:
+
+@docs/private-host.md
+
+## Stack and commands
+
+- Next.js 16 (App Router), React 19, Tailwind CSS 4, TypeScript, zustand, react-markdown + remark-gfm + rehype-highlight, lucide-react, clsx.
+- `npm run dev`, `npm run build`, `npm run lint`, `npx tsc --noEmit`, `npm run e2e` (browser flow against `BASE_URL`; creates data, so use a throwaway `DATA_DIR`).
+- Env (`.env.local` for dev, `/etc/familychatui/env` on the server): `NINEROUTER_API_KEY`, `FAMILY_PASSWORD`, optional `NINEROUTER_BASE_URL`, `DATA_DIR` (default `./data`, gitignored) and `NEXT_PUBLIC_GTM_ID` (build time; CI passes the `GTM_ID` repository variable). `FAMILY_PASSWORD` is only the starting password: once someone changes it in Settings, its scrypt hash in the database wins.
+- One **admin** profile (settings key `admin_profile_id`, defaulting to the oldest profile) is the only one that changes the default model, visible models and the family password, and adds or deletes profiles. Everyone else edits only their own profile. In "Manage profiles", a profile's own PIN gives edit rights, the admin's PIN gives edit + delete (`src/server/pin.ts`). The admin profile can't be deleted.
+- Chats with no new message for `CHAT_RETENTION_DAYS` (90, `src/lib/config.ts`) are deleted by `src/server/cleanup.ts`, started from `src/instrumentation.ts` (at startup, then hourly). Chats with `keep_forever` are never deleted, also not by Settings → Chat history → "Delete chats" (own chats only).
+- The guess limiter keys on `X-Real-IP` only. nginx sets it from `$remote_addr`, which the realip snippet (`deploy/setup-host.sh`) takes from `CF-Connecting-IP` only for Cloudflare's IP ranges. Never trust `CF-Connecting-IP` in the app.
+- `next build` and `next dev` share `.next`; after a build, a running dev server can loop on "HMR hash mismatch" page reloads. Stop it, `rm -rf .next`, start again.
+- Deploy: push to `main` (CI), or by hand `DEPLOY_HOST=... DEPLOY_KEY=... deploy/deploy.sh` (values in `docs/private-host.md`). It builds the standalone bundle, ships a whitelist through `deploy-gate` (upload/activate only), and `activate-release.sh` rolls back on a failed health check. Host setup (idempotent, re-run after changing `deploy/`): `deploy/setup-host.sh`.
+- PDF/Office attachments need `pdftotext` and LibreOffice (`soffice`) where the server runs; without them, documents fail with a clear message (images and text files still work).
+- `@playwright/test` is pinned to 1.63.0 so it reuses the browsers already in `~/Library/Caches/ms-playwright`.
+- npm 11 on this Mac rejects create-next-app's `--allow-scripts` flag (`EALLOWSCRIPTS`). Run `npm install` directly instead. The global `~/.npmrc` has `allow-scripts=9router`; leave it alone.
+
+## Layout
+
+- `src/app/login`: shared family password (`FAMILY_PASSWORD`; `family` in local dev).
+- `src/app/profiles`: "Who's chatting?" picker, profile management and PIN entry. A fresh database has no profiles.
+- `src/app/api/`: route handlers (session, login/logout, profiles, settings, chats, messages with SSE streaming, regenerate, stop, re-attach stream).
+- `src/server/`: server-only code: `db.ts` (SQLite + migrations), `session.ts` (signed cookie, guards), `repo.ts` (queries), `ninerouter.ts` (9router client), `replies.ts` (detached reply runner), `pin.ts`, `rate-limit.ts`, `validate.ts`, `env.ts`.
+- `src/app/(app)/`: signed-in shell (sidebar + main). Contains `page.tsx` (new chat), `chat/[id]`, `models` (Explore) and `settings`.
+- `src/lib/`:
+  - `models.ts`: model catalog using real 9router ids with friendly names.
+  - `store.ts`: zustand store mirroring the server; only device preferences persist in localStorage.
+  - `runner.ts`: sends messages and follows the SSE reply outside React, re-attaching after dropped connections.
+  - `api.ts` (fetch helpers), `attachments.ts` (image downscale, text files), `config.ts`, `types.ts`.
+- `src/components/`: composer, messages, markdown, sidebar, shell, model menu, popover, avatars, PIN pad, profile editor, ui primitives.
+
+## Conventions
+
+- Model ids are the exact 9router ids. Display names, descriptions and default visibility live in `src/lib/models.ts`.
+- Never call 9router from the browser. The backend calls `http://127.0.0.1:20128/v1` server-side, and the API key stays on the server.
+- Replies run detached from the request (`src/server/replies.ts`): a dropped connection doesn't stop them; only Stop does. Codex models (`cx/*`) go through `/v1/responses` with `web_search` for structured sources; others through `/v1/chat/completions`.
+- Server-side code that touches the filesystem must not let Next's file tracing copy the whole project into the standalone build (see the `turbopackIgnore` comments in `src/server/env.ts`).
+- Every 9router call sends `x-9router-token-saver: off`: 9router's global caveman/RTK token savers (meant for coding tools) would otherwise make family replies terse fragments.
+- Use the theme tokens from `src/app/globals.css` (`bg-surface`, `bg-surface-2`, `text-muted`, `border-border`, `bg-accent`, ...). Dark mode comes from `data-theme` on `<html>` (`system`/`light`/`dark`).
+- Zustand selectors must return stable references. Select raw state and derive with `useMemo`; a selector that returns a new array or object every time causes an infinite render loop.
+- Design mobile first, because the family uses phones. The font is Be Vietnam Pro (Vietnamese subset), so diacritics render in one font. Check IME (`isComposing`) before treating Enter as send.
+- Model avatars are real provider logos from `public/icons/models` (SVG Logos, CC0, fetched with the taste skill's `icons.mjs`). Auto gets a sparkle tile; a model without a logo (GLM) gets an initials tile.
+- All UI text goes through `src/lib/i18n.ts` (`useT()`), in both `en` and `vi`. Language is per profile; the login and profile screens use the device's last language. Chat replies follow the language of the prompt, not the UI language.
+- Accent is `#ff5500` (`bg-accent`) only for icon-only fills, rings and highlights. Text on orange uses `bg-accent-strong` (`#d04400`, 4.66:1 with white). Never put normal-size white text on `bg-accent`.
+- Web search is always on for models with `search: true` (mirrors 9router's `capabilities.search`). The model decides per question whether to search; replies that searched carry `sources`.
+- The taste skill's design rules were applied (tap targets of at least 44px on phones, press feedback, no violet, verb-plus-object buttons). Its marketing-page gate doesn't fit an app and is not run.
+
+## Agent Orchestration
+
+### Agent Worktree Lifecycle
+
+- Clean up agent-created worktrees only after the agent's task is complete and its changes are committed and pushed.
+- Then remove that agent-created worktree immediately, run `git worktree prune`, and verify `git worktree list` has no stale agent-created worktrees.
+- Never remove active or user-created worktrees.
+
+### Background Work
+
+- Always tell the user when they must wait for a subagent or background task to finish before sending the next message.
+- Name what is still running and what completion signal to expect. When nothing is pending, no notice is needed.
+
+<!-- gitnexus:start -->
+# GitNexus — Code Intelligence
+
+This project is indexed by GitNexus as **familychatui** (417 symbols, 978 relationships, 34 execution flows). Use the GitNexus MCP tools to understand code, assess impact, and navigate safely.
+
+> Index stale? Run `node .gitnexus/run.cjs analyze` from the project root — it auto-selects an available runner. No `.gitnexus/run.cjs` yet? `npx gitnexus analyze` (npm 11 crash → `npm i -g gitnexus`; #1939).
+
+## Always Do
+
+- **MUST run impact analysis before editing any symbol.** Before modifying a function, class, or method, run `impact({target: "symbolName", direction: "upstream"})` and report the blast radius (direct callers, affected processes, risk level) to the user.
+- **MUST run `detect_changes()` before committing** to verify your changes only affect expected symbols and execution flows. For regression review, compare against the default branch: `detect_changes({scope: "compare", base_ref: "main"})`.
+- **MUST warn the user** if impact analysis returns HIGH or CRITICAL risk before proceeding with edits.
+- When exploring unfamiliar code, use `query({search_query: "concept"})` to find execution flows instead of grepping. It returns process-grouped results ranked by relevance.
+- When you need full context on a specific symbol — callers, callees, which execution flows it participates in — use `context({name: "symbolName"})`.
+- For security review, `explain({target: "fileOrSymbol"})` lists taint findings (source→sink flows; needs `analyze --pdg`).
+
+## Never Do
+
+- NEVER edit a function, class, or method without first running `impact` on it.
+- NEVER ignore HIGH or CRITICAL risk warnings from impact analysis.
+- NEVER rename symbols with find-and-replace — use `rename` which understands the call graph.
+- NEVER commit changes without running `detect_changes()` to check affected scope.
+
+## Resources
+
+| Resource | Use for |
+|----------|---------|
+| `gitnexus://repo/familychatui/context` | Codebase overview, check index freshness |
+| `gitnexus://repo/familychatui/clusters` | All functional areas |
+| `gitnexus://repo/familychatui/processes` | All execution flows |
+| `gitnexus://repo/familychatui/process/{name}` | Step-by-step execution trace |
+
+## CLI
+
+| Task | Read this skill file |
+|------|---------------------|
+| Understand architecture / "How does X work?" | `.claude/skills/gitnexus/gitnexus-exploring/SKILL.md` |
+| Blast radius / "What breaks if I change X?" | `.claude/skills/gitnexus/gitnexus-impact-analysis/SKILL.md` |
+| Trace bugs / "Why is X failing?" | `.claude/skills/gitnexus/gitnexus-debugging/SKILL.md` |
+| Rename / extract / split / refactor | `.claude/skills/gitnexus/gitnexus-refactoring/SKILL.md` |
+| Tools, resources, schema reference | `.claude/skills/gitnexus/gitnexus-guide/SKILL.md` |
+| Index, status, clean, wiki CLI commands | `.claude/skills/gitnexus/gitnexus-cli/SKILL.md` |
+
+<!-- gitnexus:end -->
