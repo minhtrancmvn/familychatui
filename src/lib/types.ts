@@ -92,8 +92,9 @@ export interface Chat {
   createdAt: number;
   updatedAt: number;
   messages: Message[];
-  /** Never deleted automatically or by "Clean up chats". */
-  keepForever?: boolean;
+  /** Pinned: listed at the top (by `pinOrder`, lowest first) and never deleted automatically or by a cleanup. */
+  pinned?: boolean;
+  pinOrder?: number;
   /** Client only: messages have been fetched from the server. */
   loaded?: boolean;
 }

@@ -1,6 +1,6 @@
 "use client";
 
-import { ArrowDown, InfinityIcon, MoreHorizontal, Pencil, SquarePen, Trash2 } from "lucide-react";
+import { ArrowDown, MoreHorizontal, Pencil, Pin, PinOff, SquarePen, Trash2 } from "lucide-react";
 import Link from "next/link";
 import { useParams, useRouter } from "next/navigation";
 import { useEffect, useLayoutEffect, useRef, useState } from "react";
@@ -59,7 +59,7 @@ function ChatView({ chatId }: { chatId: string }) {
   const { chat, state } = useLoadedChat(chatId);
   const renameChat = useAppStore((s) => s.renameChat);
   const deleteChat = useAppStore((s) => s.deleteChat);
-  const setKeepForever = useAppStore((s) => s.setKeepForever);
+  const setPinned = useAppStore((s) => s.setPinned);
   const defaultModelId = useAppStore((s) => s.settings.defaultModelId);
   const profile = useActiveProfile();
   const router = useRouter();
@@ -129,7 +129,7 @@ function ChatView({ chatId }: { chatId: string }) {
               <h1 className="truncate text-sm font-semibold">{chat.title}</h1>
               <div className="truncate text-xs text-muted">
                 {chatModel.name}
-                {chat.keepForever && ` · ${t("chat.kept")}`}
+                {chat.pinned && ` · ${t("chat.pinned")}`}
               </div>
             </div>
           </div>
@@ -164,13 +164,13 @@ function ChatView({ chatId }: { chatId: string }) {
               {t("chat.rename")}
             </MenuItem>
             <MenuItem
-              icon={<InfinityIcon className="size-4" />}
+              icon={chat.pinned ? <PinOff className="size-4" /> : <Pin className="size-4" />}
               onClick={() => {
                 setMenuOpen(false);
-                setKeepForever(chat.id, !chat.keepForever);
+                setPinned(chat.id, !chat.pinned);
               }}
             >
-              {chat.keepForever ? t("chat.unkeep") : t("chat.keep")}
+              {chat.pinned ? t("chat.unpin") : t("chat.pin")}
             </MenuItem>
             <MenuItem
               danger

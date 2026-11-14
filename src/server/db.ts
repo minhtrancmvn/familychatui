@@ -71,6 +71,13 @@ const MIGRATIONS: string[] = [
   ALTER TABLE chats ADD COLUMN title_state TEXT NOT NULL DEFAULT 'initial';
   UPDATE chats SET title_state = 'generated';
   `,
+  // 4: "Keep forever" became "Pin": pinned chats sit at the top of the list in the order people drag them
+  // to (pin_order, lowest first) and are still never deleted. Kept chats become pinned, newest first.
+  `
+  ALTER TABLE chats RENAME COLUMN keep_forever TO pinned;
+  ALTER TABLE chats ADD COLUMN pin_order REAL;
+  UPDATE chats SET pin_order = -updated_at WHERE pinned = 1;
+  `,
 ];
 
 function open(): Db {
