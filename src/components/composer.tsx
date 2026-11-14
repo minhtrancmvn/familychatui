@@ -327,7 +327,7 @@ export function Composer({
           </p>
         )}
         {drafts.length > 0 && (
-          <ul className="flex gap-2 overflow-x-auto px-3 pt-3" aria-label={t("composer.attachments")}>
+          <ul data-scroll-x className="flex gap-2 overflow-x-auto px-3 pt-3" aria-label={t("composer.attachments")}>
             {drafts.map(({ attachment, previewUrl, reading: isReading }) => (
               <li key={attachment.id} className="relative shrink-0">
                 {previewUrl ? (

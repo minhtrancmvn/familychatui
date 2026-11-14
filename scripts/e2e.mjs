@@ -42,10 +42,26 @@ function watch(page, label) {
   page.on("pageerror", (e) => problems.push(`[${label}] pageerror: ${String(e).slice(0, 300)}`));
 }
 
+/**
+ * Content wider than the screen. Checking the page alone isn't enough: the app scrolls inside
+ * containers, so a too-wide child makes that container scroll sideways while the page looks fine.
+ * Code blocks, tables and anything marked `data-scroll-x` scroll sideways on purpose.
+ */
+function sidewaysOverflow() {
+  const vw = document.documentElement.clientWidth;
+  const found = [];
+  if (document.documentElement.scrollWidth > vw) found.push(`page ${document.documentElement.scrollWidth} > ${vw}`);
+  for (const el of document.querySelectorAll("body *")) {
+    if (!["auto", "scroll"].includes(getComputedStyle(el).overflowX) || el.scrollWidth <= el.clientWidth + 1) continue;
+    if (el.closest("pre, table, [data-scroll-x]")) continue;
+    found.push(`${el.tagName.toLowerCase()}.${String(el.className).slice(0, 50)} ${el.scrollWidth} > ${el.clientWidth}`);
+  }
+  return found;
+}
+
 async function shot(page, name) {
   await page.waitForTimeout(300);
-  const o = await page.evaluate(() => ({ sw: document.documentElement.scrollWidth, cw: document.documentElement.clientWidth }));
-  if (o.sw > o.cw) overflow.push(`${name}: scrollWidth ${o.sw} > ${o.cw}`);
+  for (const o of await page.evaluate(sidewaysOverflow)) overflow.push(`${name}: ${o}`);
   await page.screenshot({ path: `${OUT}/${name}.png` });
 }
 
@@ -197,6 +213,11 @@ async function phone(browser) {
   await enterProfile(page, "m");
   await shot(page, "m04-home");
   await chat(page, "m", "What is 2 + 3? Answer with one number.");
+  // Settings is the densest screen (the admin sees every section); check it at phone width too.
+  await page.goto(`${BASE}/settings`);
+  await page.getByRole("heading", { name: "Settings" }).waitFor();
+  await shot(page, "m06-settings");
+  step("m: settings opened on a phone (overflow checked below)");
   await ctx.close();
 }
 
