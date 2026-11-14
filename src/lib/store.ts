@@ -43,6 +43,8 @@ interface AppState {
   createChat: (profileId: string, modelId: string, title: string) => string;
   loadChat: (id: string) => Promise<"ok" | "not-found">;
   renameChat: (id: string, title: string) => void;
+  /** A title the server already saved (automatic naming); no request. */
+  applyChatTitle: (id: string, title: string) => void;
   deleteChat: (id: string) => void;
   setKeepForever: (id: string, keep: boolean) => void;
   /** Deletes this profile's chats older than `olderThanDays` (null = all), except those kept forever. Returns how many. */
@@ -238,6 +240,7 @@ export const useAppStore = create<AppState>()(
         });
         return "ok";
       },
+      applyChatTitle: (id, title) => set((s) => ({ chats: mapChat(s.chats, id, (c) => ({ ...c, title })) })),
       renameChat: (id, title) => {
         set((s) => ({ chats: mapChat(s.chats, id, (c) => ({ ...c, title })) }));
         background(api(`/api/chats/${id}`, { method: "PATCH", body: { title } }));

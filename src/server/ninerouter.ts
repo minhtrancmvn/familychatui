@@ -264,6 +264,55 @@ async function* viaChatCompletions(
   }
 }
 
+// Fast, cheap models for chat titles, tried in order (DeepSeek Flash answers in ~1.3 s).
+const TITLE_MODELS = ["ds/deepseek-flash", "9r-combo-light"];
+const TITLE_PROMPT =
+  "You name chat conversations. Reply with only a short title of at most 6 words for the conversation below, " +
+  "in the same language as the user's message. No quotes, no emoji, no ending punctuation.";
+
+function cleanTitle(raw: string): string | null {
+  const line = raw.split("\n").map((l) => l.trim()).find(Boolean) ?? "";
+  const title = line
+    .replace(/^(title|tiêu đề)\s*:\s*/i, "")
+    .replace(/^["'“”‘’`*#\s]+|["'“”‘’`*\s]+$/g, "")
+    .replace(/[.。!?:;,]+$/, "")
+    .replace(/\s+/g, " ")
+    .trim();
+  if (!title || title.length > 120) return null;
+  return title.length > 60 ? `${title.slice(0, 59).trimEnd()}…` : title;
+}
+
+/** A short title for a conversation, in its language. Null when no title model answered in time. */
+export async function generateTitle(question: string, answer: string): Promise<string | null> {
+  const conversation = `User: ${question.slice(0, 2000)}\n\nAssistant: ${answer.slice(0, 2000)}`;
+  for (const model of TITLE_MODELS) {
+    try {
+      const res = await fetch(`${ninerouterBaseUrl()}/chat/completions`, {
+        method: "POST",
+        headers: headers(),
+        signal: AbortSignal.timeout(15_000),
+        body: JSON.stringify({
+          model,
+          stream: false,
+          max_tokens: 300,
+          temperature: 0.3,
+          messages: [
+            { role: "system", content: TITLE_PROMPT },
+            { role: "user", content: conversation },
+          ],
+        }),
+      });
+      if (!res.ok) throw await failure(res);
+      const body = (await res.json()) as { choices?: Array<{ message?: { content?: string | null } }> };
+      const title = cleanTitle(body.choices?.[0]?.message?.content ?? "");
+      if (title) return title;
+    } catch (err) {
+      console.warn(`[title] ${model}:`, (err as Error).message);
+    }
+  }
+  return null;
+}
+
 /** Streams one reply. Codex models go through /v1/responses so web-search sources come back structured. */
 export async function* streamReply(modelId: string, history: HistoryMessage[], signal: AbortSignal): AsyncGenerator<ReplyEvent> {
   const caps = await capabilitiesFor(modelId);

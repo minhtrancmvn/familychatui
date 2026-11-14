@@ -65,6 +65,12 @@ const MIGRATIONS: string[] = [
   ALTER TABLE chats ADD COLUMN keep_forever INTEGER NOT NULL DEFAULT 0;
   CREATE INDEX chats_by_activity ON chats(keep_forever, updated_at);
   `,
+  // 3: A model names each new chat after its first reply ('initial' -> 'generated'), unless someone
+  // renamed it first ('user'). Chats that already exist keep their titles.
+  `
+  ALTER TABLE chats ADD COLUMN title_state TEXT NOT NULL DEFAULT 'initial';
+  UPDATE chats SET title_state = 'generated';
+  `,
 ];
 
 function open(): Db {
