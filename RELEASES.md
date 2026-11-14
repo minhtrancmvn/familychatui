@@ -2,6 +2,10 @@
 
 Every merge to `main` deploys automatically and gets an entry here, newest first. Versions follow `package.json`: new features bump the minor number, fixes the patch number.
 
+## 0.4.2 (2026-11-15)
+
+- **Behind the scenes:** the server now keeps only recent versions of the app for going back if an update breaks something: the last 5, or every version from the past week when there are more. Nothing changes in the app itself.
+
 ## 0.4.1 (2026-11-14)
 
 - **A different app icon.** The orange "f" looked too much like Facebook. The icon is now a little white house that is also a speech bubble, with three dots, on orange: home and chat. If you already added the app to your home screen, remove it and add it again to get the new icon.
