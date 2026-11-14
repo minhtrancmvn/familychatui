@@ -50,7 +50,7 @@ npm run dev                  # http://localhost:3000
 
 The first profile you create becomes the admin. The model catalog (names, descriptions, logos, which models start hidden) lives in `src/lib/models.ts`; the ids must match your 9router's `/v1/models`.
 
-Other commands: `npm run lint`, `npx tsc --noEmit`, `npm run build`, and `npm run e2e` (a browser walkthrough against a running server; it creates data, so point it at a throwaway `DATA_DIR`). `bash scripts/app-icon/build.sh` redraws every app icon from the font (needs Python 3 and the installed Playwright).
+Other commands: `npm run lint`, `npx tsc --noEmit`, `npm run build`, and `npm run e2e` (a browser walkthrough against a running server; it creates data, so point it at a throwaway `DATA_DIR`). `bash scripts/app-icon/build.sh` redraws every app icon from `scripts/app-icon/draw.mjs` (needs Python 3 and the installed Playwright).
 
 ## Deploy
 
