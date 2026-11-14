@@ -18,6 +18,7 @@ What changed in each version: [RELEASES.md](RELEASES.md).
 - **Pinned chats** stay at the top of the list, in the order you drag them to, and are never deleted.
 - **Chat history that cleans itself up.** Chats with no new message for 90 days are deleted automatically unless pinned. Each person can also clear their own old chats in Settings.
 - **Replies follow the language of the question**, whatever the app's language is.
+- **Add to Home Screen.** A web app manifest and icons for browser tabs, iPhone and Android, so the app opens full screen like an installed one.
 
 ## Stack
 
@@ -49,7 +50,7 @@ npm run dev                  # http://localhost:3000
 
 The first profile you create becomes the admin. The model catalog (names, descriptions, logos, which models start hidden) lives in `src/lib/models.ts`; the ids must match your 9router's `/v1/models`.
 
-Other commands: `npm run lint`, `npx tsc --noEmit`, `npm run build`, and `npm run e2e` (a browser walkthrough against a running server; it creates data, so point it at a throwaway `DATA_DIR`).
+Other commands: `npm run lint`, `npx tsc --noEmit`, `npm run build`, and `npm run e2e` (a browser walkthrough against a running server; it creates data, so point it at a throwaway `DATA_DIR`). `bash scripts/app-icon/build.sh` redraws every app icon from the font (needs Python 3 and the installed Playwright).
 
 ## Deploy
 

@@ -2,6 +2,11 @@
 
 Every merge to `main` deploys automatically and gets an entry here, newest first. Versions follow `package.json`: new features bump the minor number, fixes the patch number.
 
+## 0.4.0 (2026-11-14)
+
+- **A new app icon.** An orange "f" on a dark tile, in the app's own font, replaces the generic chat bubble on the login screen, the profile picker and the sidebar, and now also shows in the browser tab.
+- **Add it to your home screen.** On iPhone (Share → Add to Home Screen) or Android (menu → Add to Home screen), the app gets its own icon and opens full screen, without the browser bars.
+
 ## 0.3.1 (2026-11-14)
 
 - **Only Vietnam and Singapore can open the app.** Visitors from anywhere else get "403 Forbidden". The country list comes from DB-IP and refreshes itself every month. The other sites on the server are not affected.
