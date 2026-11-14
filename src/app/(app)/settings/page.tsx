@@ -170,7 +170,7 @@ function ChatHistoryCleanup() {
     () =>
       chats.filter(
         (c) =>
-          !c.keepForever &&
+          !c.pinned &&
           // A brand-new chat without messages only exists in this browser.
           !(c.loaded && c.messages.length === 0) &&
           (days === null || c.updatedAt < now - days * DAY_MS),

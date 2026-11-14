@@ -1,6 +1,6 @@
 {
   "name": "familychatui",
-  "version": "0.2.0",
+  "version": "0.3.0",
   "private": true,
   "scripts": {
     "dev": "next dev",
@@ -10,6 +10,9 @@
     "e2e": "node scripts/e2e.mjs shots"
   },
   "dependencies": {
+    "@dnd-kit/core": "6.3.1",
+    "@dnd-kit/sortable": "10.0.0",
+    "@dnd-kit/utilities": "3.2.2",
     "@next/third-parties": "16.4.6",
     "clsx": "^2.1.1",
     "highlight.js": "^11.12.0",

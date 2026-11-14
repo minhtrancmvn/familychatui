@@ -46,7 +46,10 @@ interface AppState {
   /** A title the server already saved (automatic naming); no request. */
   applyChatTitle: (id: string, title: string) => void;
   deleteChat: (id: string) => void;
-  setKeepForever: (id: string, keep: boolean) => void;
+  /** Pin (on top of the pinned list) or unpin a chat. Pinned chats are never deleted. */
+  setPinned: (id: string, pinned: boolean) => void;
+  /** New order of the pinned chats after a drag, top first. */
+  reorderPinned: (ids: string[]) => void;
   /** Deletes this profile's chats older than `olderThanDays` (null = all), except those kept forever. Returns how many. */
   cleanupChats: (olderThanDays: number | null) => Promise<number>;
   setChatModel: (id: string, modelId: string) => void;
@@ -249,9 +252,17 @@ export const useAppStore = create<AppState>()(
         set((s) => ({ chats: s.chats.filter((c) => c.id !== id) }));
         background(api(`/api/chats/${id}`, { method: "DELETE" }));
       },
-      setKeepForever: (id, keep) => {
-        set((s) => ({ chats: mapChat(s.chats, id, (c) => ({ ...c, keepForever: keep })) }));
-        background(api(`/api/chats/${id}`, { method: "PATCH", body: { keepForever: keep } }));
+      setPinned: (id, pinned) => {
+        set((s) => {
+          const top = Math.min(0, ...s.chats.filter((c) => c.pinned).map((c) => c.pinOrder ?? 0));
+          return { chats: mapChat(s.chats, id, (c) => ({ ...c, pinned, pinOrder: pinned ? top - 1 : undefined })) };
+        });
+        background(api(`/api/chats/${id}`, { method: "PATCH", body: { pinned } }));
+      },
+      reorderPinned: (ids) => {
+        const order = new Map(ids.map((id, i) => [id, i]));
+        set((s) => ({ chats: s.chats.map((c) => (order.has(c.id) ? { ...c, pinOrder: order.get(c.id) } : c)) }));
+        background(api("/api/chats/pinned", { method: "PUT", body: { ids } }));
       },
       cleanupChats: async (olderThanDays) => {
         const { deleted } = await api<{ deleted: string[] }>("/api/chats/cleanup", { body: { olderThanDays } });

@@ -152,7 +152,8 @@ interface ChatRow {
   model_id: string;
   created_at: number;
   updated_at: number;
-  keep_forever: number;
+  pinned: number;
+  pin_order: number | null;
 }
 
 interface MessageRow {
@@ -185,7 +186,8 @@ function toChat(r: ChatRow, messages: Message[] = [], loaded = false): Chat {
     modelId: r.model_id,
     createdAt: r.created_at,
     updatedAt: r.updated_at,
-    keepForever: r.keep_forever === 1,
+    pinned: r.pinned === 1,
+    pinOrder: r.pin_order ?? undefined,
     messages,
     loaded,
   };
@@ -287,11 +289,38 @@ export function setGeneratedTitle(chatId: string, title: string): boolean {
     .changes > 0;
 }
 
-export function setKeepForever(profileId: string, chatId: string, keep: boolean): boolean {
-  return (
-    db().prepare("UPDATE chats SET keep_forever = ? WHERE id = ? AND profile_id = ?").run(keep ? 1 : 0, chatId, profileId)
-      .changes > 0
-  );
+/** Pins a chat at the top of the pinned list, or unpins it. Returns false when the chat isn't this profile's. */
+export function setPinned(profileId: string, chatId: string, pinned: boolean): boolean {
+  if (!pinned) {
+    return (
+      db().prepare("UPDATE chats SET pinned = 0, pin_order = NULL WHERE id = ? AND profile_id = ?").run(chatId, profileId).changes > 0
+    );
+  }
+  return tx(() => {
+    const top = db().prepare("SELECT MIN(pin_order) AS top FROM chats WHERE profile_id = ? AND pinned = 1").get(profileId) as {
+      top: number | null;
+    };
+    const order = (top.top ?? 0) - 1;
+    return (
+      db()
+        .prepare("UPDATE chats SET pinned = 1, pin_order = ? WHERE id = ? AND profile_id = ? AND pinned = 0")
+        .run(order, chatId, profileId).changes > 0 ||
+      db().prepare("SELECT 1 FROM chats WHERE id = ? AND profile_id = ?").get(chatId, profileId) !== undefined
+    );
+  });
+}
+
+/** Saves the order of a profile's pinned chats. `ids` must be exactly the pinned chats, top first. */
+export function reorderPinned(profileId: string, ids: string[]): boolean {
+  return tx(() => {
+    const current = (db().prepare("SELECT id FROM chats WHERE profile_id = ? AND pinned = 1").all(profileId) as Array<{ id: string }>).map(
+      (r) => r.id,
+    );
+    if (current.length !== ids.length || !ids.every((id) => current.includes(id))) return false;
+    const update = db().prepare("UPDATE chats SET pin_order = ? WHERE id = ? AND profile_id = ?");
+    ids.forEach((id, i) => update.run(i, id, profileId));
+    return true;
+  });
 }
 
 /**
@@ -300,7 +329,7 @@ export function setKeepForever(profileId: string, chatId: string, keep: boolean)
  */
 export function deleteChatsInactiveSince(cutoff: number, profileId?: string): string[] {
   return tx(() => {
-    const where = `keep_forever = 0 AND updated_at < ?${profileId ? " AND profile_id = ?" : ""}`;
+    const where = `pinned = 0 AND updated_at < ?${profileId ? " AND profile_id = ?" : ""}`;
     const args = profileId ? [cutoff, profileId] : [cutoff];
     const ids = (db().prepare(`SELECT id FROM chats WHERE ${where}`).all(...args) as Array<{ id: string }>).map((r) => r.id);
     if (ids.length) db().prepare(`DELETE FROM chats WHERE ${where}`).run(...args);

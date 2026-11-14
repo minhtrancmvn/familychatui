@@ -14,7 +14,9 @@ What changed in each version: [RELEASES.md](RELEASES.md).
 - **Models.** Friendly names over 9router model ids, a model picker, `@` to switch models mid-message, and "Retry with…" another model.
 - **Web search with sources** for models that support it (Codex models through `/v1/responses` with structured citations).
 - **Attachments.** Photos (downscaled in the browser, for vision models), text files, and PDF / Word / Excel / PowerPoint files (old and new formats, plus OpenDocument and iWork), which the server turns into text. Drag and drop files anywhere on the page.
-- **Chat history that cleans itself up.** Chats with no new message for 90 days are deleted automatically, unless marked "Keep forever". Each person can also clear their own old chats in Settings.
+- **Chats name themselves** after the first reply, with a short title in the chat's language.
+- **Pinned chats** stay at the top of the list, in the order you drag them to, and are never deleted.
+- **Chat history that cleans itself up.** Chats with no new message for 90 days are deleted automatically unless pinned. Each person can also clear their own old chats in Settings.
 - **Replies follow the language of the question**, whatever the app's language is.
 
 ## Stack

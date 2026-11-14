@@ -1,10 +1,13 @@
 "use client";
 
+import { closestCenter, DndContext, KeyboardSensor, PointerSensor, useSensor, useSensors } from "@dnd-kit/core";
+import { arrayMove, SortableContext, sortableKeyboardCoordinates, useSortable, verticalListSortingStrategy } from "@dnd-kit/sortable";
+import { CSS } from "@dnd-kit/utilities";
 import clsx from "clsx";
-import { Compass, InfinityIcon, MoreHorizontal, Pencil, Plus, Search, Settings, Trash2 } from "lucide-react";
+import { Compass, GripVertical, MoreHorizontal, Pencil, Pin, PinOff, Plus, Search, Settings, Trash2 } from "lucide-react";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
-import { useCallback, useMemo, useRef, useState } from "react";
+import { type CSSProperties, type ReactNode, useCallback, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 
 import { ModelAvatar, ProfileAvatar } from "@/components/avatars";
@@ -29,13 +32,18 @@ export function Sidebar({ onNavigate }: { onNavigate?: () => void }) {
   const now = useNow();
   const [query, setQuery] = useState("");
 
-  const groups = useMemo(() => {
-    if (!profile) return [];
+  const { pinned, groups } = useMemo(() => {
+    if (!profile) return { pinned: [], groups: [] };
     const q = query.trim().toLowerCase();
-    const mine = chats
-      .filter((c) => c.profileId === profile.id && (!q || c.title.toLowerCase().includes(q)))
-      .sort((a, b) => b.updatedAt - a.updatedAt);
-    return groupByRecency(mine, now);
+    const mine = chats.filter((c) => c.profileId === profile.id && (!q || c.title.toLowerCase().includes(q)));
+    return {
+      // Pinned chats on top, in the order people dragged them to; everything else by recency.
+      pinned: mine.filter((c) => c.pinned).sort((a, b) => (a.pinOrder ?? 0) - (b.pinOrder ?? 0)),
+      groups: groupByRecency(
+        mine.filter((c) => !c.pinned).sort((a, b) => b.updatedAt - a.updatedAt),
+        now,
+      ),
+    };
   }, [chats, profile, query, now]);
 
   if (!profile) return null;
@@ -83,6 +91,13 @@ export function Sidebar({ onNavigate }: { onNavigate?: () => void }) {
       </div>
 
       <nav aria-label={t("nav.chats")} className="mt-1 min-h-0 flex-1 overflow-y-auto px-2 pb-2">
+        {pinned.length > 0 && (
+          <section className="mt-3">
+            <h3 className="px-2 pb-1 text-xs font-medium text-muted">{t("nav.pinned")}</h3>
+            {/* Reordering a filtered subset would be confusing, so dragging is off while searching. */}
+            <PinnedList chats={pinned} draggable={!query.trim()} pathname={pathname} onNavigate={onNavigate} />
+          </section>
+        )}
         {groups.map((group) => (
           <section key={group.key} className="mt-3">
             <h3 className="px-2 pb-1 text-xs font-medium text-muted">{t(group.key)}</h3>
@@ -93,7 +108,7 @@ export function Sidebar({ onNavigate }: { onNavigate?: () => void }) {
             </ul>
           </section>
         ))}
-        {groups.length === 0 && (
+        {groups.length === 0 && pinned.length === 0 && (
           <p className="px-3 py-6 text-center text-sm text-muted">{query ? t("nav.noMatch") : t("nav.empty")}</p>
         )}
       </nav>
@@ -130,11 +145,105 @@ export function Sidebar({ onNavigate }: { onNavigate?: () => void }) {
   );
 }
 
-function ChatItem({ chat, active, onNavigate }: { chat: Chat; active: boolean; onNavigate?: () => void }) {
+/** A draggable (pinned) row: where dnd-kit attaches, how it moves, and the grip that starts a drag. */
+interface DragRow {
+  attach: (el: HTMLElement | null) => void;
+  style: CSSProperties;
+  dragging: boolean;
+  grip: ReactNode;
+}
+
+/** Pinned chats, reordered by dragging the grip (mouse, touch, or keyboard: Space, arrows, Space). */
+function PinnedList({
+  chats,
+  draggable,
+  pathname,
+  onNavigate,
+}: {
+  chats: Chat[];
+  draggable: boolean;
+  pathname: string;
+  onNavigate?: () => void;
+}) {
+  const reorderPinned = useAppStore((s) => s.reorderPinned);
+  const sensors = useSensors(
+    useSensor(PointerSensor, { activationConstraint: { distance: 4 } }),
+    useSensor(KeyboardSensor, { coordinateGetter: sortableKeyboardCoordinates }),
+  );
+  const ids = chats.map((c) => c.id);
+
+  if (!draggable) {
+    return (
+      <ul>
+        {chats.map((chat) => (
+          <ChatItem key={chat.id} chat={chat} active={pathname === `/chat/${chat.id}`} onNavigate={onNavigate} />
+        ))}
+      </ul>
+    );
+  }
+  return (
+    <DndContext
+      id="pinned-chats"
+      sensors={sensors}
+      collisionDetection={closestCenter}
+      onDragEnd={({ active, over }) => {
+        if (!over || active.id === over.id) return;
+        reorderPinned(arrayMove(ids, ids.indexOf(String(active.id)), ids.indexOf(String(over.id))));
+      }}
+    >
+      <SortableContext items={ids} strategy={verticalListSortingStrategy}>
+        <ul>
+          {chats.map((chat) => (
+            <SortableChatItem key={chat.id} chat={chat} active={pathname === `/chat/${chat.id}`} onNavigate={onNavigate} />
+          ))}
+        </ul>
+      </SortableContext>
+    </DndContext>
+  );
+}
+
+function SortableChatItem({ chat, active, onNavigate }: { chat: Chat; active: boolean; onNavigate?: () => void }) {
+  const t = useT();
+  const { attributes, listeners, setNodeRef, setActivatorNodeRef, transform, transition, isDragging } = useSortable({
+    id: chat.id,
+  });
+  const grip = (
+    <button
+      ref={setActivatorNodeRef}
+      type="button"
+      {...attributes}
+      {...listeners}
+      aria-label={t("nav.dragPinned", { title: chat.title })}
+      className="absolute left-0 top-1/2 z-[1] inline-flex size-11 -translate-y-1/2 cursor-grab touch-none items-center justify-center rounded-md text-muted hover:bg-surface-3 hover:text-text active:cursor-grabbing md:size-7"
+    >
+      <GripVertical className="size-4" />
+    </button>
+  );
+  return (
+    <ChatItem
+      chat={chat}
+      active={active}
+      onNavigate={onNavigate}
+      drag={{ attach: setNodeRef, style: { transform: CSS.Transform.toString(transform), transition }, dragging: isDragging, grip }}
+    />
+  );
+}
+
+function ChatItem({
+  chat,
+  active,
+  onNavigate,
+  drag,
+}: {
+  chat: Chat;
+  active: boolean;
+  onNavigate?: () => void;
+  drag?: DragRow;
+}) {
   const t = useT();
   const renameChat = useAppStore((s) => s.renameChat);
   const deleteChat = useAppStore((s) => s.deleteChat);
-  const setKeepForever = useAppStore((s) => s.setKeepForever);
+  const setPinned = useAppStore((s) => s.setPinned);
   const router = useRouter();
   const [menuAt, setMenuAt] = useState<{ top: number; left: number } | null>(null);
   const [editing, setEditing] = useState(false);
@@ -153,7 +262,7 @@ function ChatItem({ chat, active, onNavigate }: { chat: Chat; active: boolean; o
       setEditing(false);
     };
     return (
-      <li>
+      <li ref={drag?.attach} style={drag?.style}>
         <input
           autoFocus
           defaultValue={chat.title}
@@ -170,21 +279,20 @@ function ChatItem({ chat, active, onNavigate }: { chat: Chat; active: boolean; o
   }
 
   return (
-    <li className="group relative">
+    <li ref={drag?.attach} style={drag?.style} className={clsx("group relative", drag?.dragging && "z-10 rounded-lg bg-surface shadow-lg")}>
+      {drag?.grip}
       <Link
         href={`/chat/${chat.id}`}
         onClick={onNavigate}
         aria-current={active ? "page" : undefined}
         className={clsx(
-          "flex items-center gap-2.5 rounded-lg py-3 pl-2 pr-12 text-sm transition-colors md:py-2 md:pr-9",
+          "flex items-center gap-2.5 rounded-lg py-3 pr-12 text-sm transition-colors md:py-2 md:pr-9",
+          drag ? "pl-11 md:pl-8" : "pl-2",
           active ? "bg-surface-3 font-medium" : "hover:bg-surface-2",
         )}
       >
         <ModelAvatar model={model} size={20} />
         <span className="truncate">{chat.title}</span>
-        {chat.keepForever && (
-          <InfinityIcon className="size-3.5 shrink-0 text-muted" role="img" aria-label={t("chat.kept")} />
-        )}
       </Link>
       <button
         ref={triggerRef}
@@ -223,13 +331,13 @@ function ChatItem({ chat, active, onNavigate }: { chat: Chat; active: boolean; o
               {t("chat.rename")}
             </MenuItem>
             <MenuItem
-              icon={<InfinityIcon className="size-4" />}
+              icon={chat.pinned ? <PinOff className="size-4" /> : <Pin className="size-4" />}
               onClick={() => {
                 setMenuAt(null);
-                setKeepForever(chat.id, !chat.keepForever);
+                setPinned(chat.id, !chat.pinned);
               }}
             >
-              {chat.keepForever ? t("chat.unkeep") : t("chat.keep")}
+              {chat.pinned ? t("chat.unpin") : t("chat.pin")}
             </MenuItem>
             <MenuItem
               danger
