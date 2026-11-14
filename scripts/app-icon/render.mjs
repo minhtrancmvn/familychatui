@@ -21,7 +21,7 @@ await page.setContent(`<html><body style="margin:0;font:13px system-ui;display:g
     <div style="display:flex;gap:28px;align-items:center">${tile("apple",120,"border-radius:27px")}${tile("maskable",120,"border-radius:50%")}<span style="color:#6b6b78">iOS · Android</span></div>
   </div>
   <div style="background:#131317;padding:24px;display:flex;flex-direction:column;gap:18px">
-    <div style="display:flex;gap:18px;align-items:end">${tile("icon",16)}${tile("icon",32)}${tile("icon",64,"box-shadow:0 0 0 1px #2a2a32;border-radius:15px")}${tile("icon",128,"box-shadow:0 0 0 1px #2a2a32;border-radius:29px")}</div>
+    <div style="display:flex;gap:18px;align-items:end">${tile("icon",16)}${tile("icon",32)}${tile("icon",64)}${tile("icon",128)}</div>
     <div style="display:flex;gap:28px;align-items:center">${tile("apple",120,"border-radius:27px")}${tile("maskable",120,"border-radius:50%")}</div>
   </div></body></html>`);
 await page.waitForTimeout(200);

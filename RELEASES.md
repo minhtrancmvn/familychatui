@@ -2,6 +2,10 @@
 
 Every merge to `main` deploys automatically and gets an entry here, newest first. Versions follow `package.json`: new features bump the minor number, fixes the patch number.
 
+## 0.4.1 (2026-11-14)
+
+- **A different app icon.** The orange "f" looked too much like Facebook. The icon is now a little white house that is also a speech bubble, with three dots, on orange: home and chat. If you already added the app to your home screen, remove it and add it again to get the new icon.
+
 ## 0.4.0 (2026-11-14)
 
 - **A new app icon.** An orange "f" on a dark tile, in the app's own font, replaces the generic chat bubble on the login screen, the profile picker and the sidebar, and now also shows in the browser tab.
