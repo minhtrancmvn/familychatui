@@ -121,4 +121,8 @@ export type ReplyEvent =
   | { type: "searching" }
   | { type: "delta"; text: string }
   | { type: "sources"; sources: Source[] }
-  | { type: "done"; status: Exclude<MessageStatus, "streaming">; error?: string };
+  | { type: "done"; status: Exclude<MessageStatus, "streaming">; error?: string }
+  /** After the first reply: the chat's new automatic title. */
+  | { type: "title"; title: string }
+  /** Nothing more is coming on this stream. */
+  | { type: "end" };

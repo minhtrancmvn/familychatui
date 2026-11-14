@@ -4,6 +4,7 @@ import type { MessageStatus, ReplyEvent, Source } from "@/lib/types";
 
 import { streamReply } from "./ninerouter";
 import { finishReply, getMessage, type HistoryMessage, saveReplyProgress } from "./repo";
+import { titleChat } from "./titles";
 
 /**
  * Replies run on the server, detached from the HTTP request that started them: a phone that locks or
@@ -112,6 +113,16 @@ export function startReply(chatId: string, replyId: string, modelId: string, his
       live.delete(replyId);
       emit({ type: "done", status, error });
     }
+    // After the first good reply, name the chat. The reply already shows as done meanwhile.
+    if (status === "done") {
+      try {
+        const title = await titleChat(chatId);
+        if (title) emit({ type: "title", title });
+      } catch (err) {
+        console.warn(`[title] chat ${chatId}:`, (err as Error).message);
+      }
+    }
+    emit({ type: "end" });
   })();
 }
 
@@ -163,7 +174,7 @@ export function followReply(replyId: string): Response {
 
       const listener = (event: ReplyEvent) => {
         send(event);
-        if (event.type === "done") close();
+        if (event.type === "end") close();
       };
       const ping = setInterval(() => write(": ping\n\n"), PING_EVERY_MS);
       cleanup = () => {

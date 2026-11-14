@@ -128,6 +128,14 @@ async function desktop(browser) {
   await enterProfile(page, "d");
   await shot(page, "d04-home");
   await chat(page, "d", "Reply with just the word: pong");
+  // A model names the chat after its first reply; the header switches from the prompt to that title.
+  const header = page.getByRole("heading", { level: 1 }).first();
+  await page.waitForFunction(
+    (el) => el && el.textContent && el.textContent.trim() !== "Reply with just the word: pong",
+    await header.elementHandle(),
+    { timeout: 30_000 },
+  );
+  step(`d: chat named automatically: ${JSON.stringify(await header.innerText())}`);
 
   const url = page.url();
   await page.reload();

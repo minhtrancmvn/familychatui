@@ -258,8 +258,33 @@ export function getChat(profileId: string, chatId: string): Chat | null {
   return toChat(row, messages, true);
 }
 
+/** A rename by a person; automatic titles never replace it. */
 export function renameChat(profileId: string, chatId: string, title: string): boolean {
-  return db().prepare("UPDATE chats SET title = ? WHERE id = ? AND profile_id = ?").run(title, chatId, profileId).changes > 0;
+  return (
+    db().prepare("UPDATE chats SET title = ?, title_state = 'user' WHERE id = ? AND profile_id = ?").run(title, chatId, profileId)
+      .changes > 0
+  );
+}
+
+/** The chat's first question and first finished answer, if its title is still the initial one. */
+export function untitledFirstExchange(chatId: string): { user: string; assistant: string } | null {
+  const chat = db().prepare("SELECT title_state FROM chats WHERE id = ?").get(chatId) as { title_state: string } | undefined;
+  if (chat?.title_state !== "initial") return null;
+  const rows = messageRows(chatId);
+  const user = rows.find((m) => m.role === "user");
+  const reply = rows.find((m) => m.role === "assistant" && m.status === "done" && m.content.trim());
+  if (!user || !reply) return null;
+  const names = (db().prepare("SELECT name FROM attachments WHERE message_id = ? ORDER BY position").all(user.id) as Array<{ name: string }>)
+    .map((a) => a.name)
+    .join(", ");
+  const question = [user.content.trim(), names && `(attached: ${names})`].filter(Boolean).join("\n");
+  return { user: question, assistant: reply.content };
+}
+
+/** Saves a model-written title unless someone renamed the chat meanwhile. */
+export function setGeneratedTitle(chatId: string, title: string): boolean {
+  return db().prepare("UPDATE chats SET title = ?, title_state = 'generated' WHERE id = ? AND title_state = 'initial'").run(title, chatId)
+    .changes > 0;
 }
 
 export function setKeepForever(profileId: string, chatId: string, keep: boolean): boolean {

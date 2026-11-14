@@ -6,6 +6,7 @@ Private, Poe-style chat app for the owner's family. Its only model provider is a
 
 - In production (domain and host in `docs/private-host.md`). Every push to `main` deploys through GitHub Actions (`.github/workflows/ci.yml`); work on branches and merge. Backend: SQLite (`node:sqlite`), API routes, real 9router streaming, server-side auth, PDF/Office attachments.
 - Phases, decisions and errors are tracked in `task_plan.md` (local only, gitignored). Update it as work progresses.
+- Every PR merged to `main` adds an entry at the top of `RELEASES.md` and bumps the version with `npm version <x.y.z> --no-git-tag-version` (features: minor, fixes: patch). Write entries for the family and the owner: what changed for them, not file names.
 - 9router runs on the server (Docker, `127.0.0.1:20128`). Local development reaches it through the SSH tunnel (local port 20129); see `.env.local`. Read the decisions below before any backend or deploy work.
 
 ## 9router context (read first)

@@ -97,6 +97,12 @@ async function follow(chatId: string, replyId: string, open: (signal: AbortSigna
         finished = true;
         break;
       }
+      case "title":
+        // The server named the chat after its first reply (the stream stays open briefly for this).
+        useAppStore.getState().applyChatTitle(chatId, event.title);
+        break;
+      case "end":
+        break;
     }
   };
 

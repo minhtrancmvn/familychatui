@@ -4,6 +4,8 @@ A private, Poe-style chat app for a family, self-hosted on one small server. All
 
 Built mobile-first, in English and Vietnamese.
 
+What changed in each version: [RELEASES.md](RELEASES.md).
+
 ## Features
 
 - **One family password, Netflix-style profiles.** Everyone shares one password per device, then picks their profile. Each profile can have a 4-digit PIN.
