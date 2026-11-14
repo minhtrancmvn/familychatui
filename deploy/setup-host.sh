@@ -26,6 +26,7 @@ id familychat >/dev/null 2>&1 || sudo useradd --system --user-group --no-create-
 sudo install -d -o "$ADMIN" -g "$ADMIN" -m 755 "$ROOT" "$ROOT/releases" "$ROOT/deploy"
 sudo install -o root -g root -m 755 "$DEPLOY_DIR/deploy-gate.sh" "$ROOT/deploy/deploy-gate"
 sudo install -o root -g root -m 755 "$DEPLOY_DIR/activate-release.sh" "$ROOT/deploy/activate-release.sh"
+sudo install -o root -g root -m 755 "$DEPLOY_DIR/update-geo-allowlist.py" "$ROOT/deploy/update-geo-allowlist.py"
 
 sudo install -d -o root -g familychat -m 750 /etc/familychatui
 if ! sudo test -f /etc/familychatui/env; then
@@ -34,6 +35,8 @@ if ! sudo test -f /etc/familychatui/env; then
 fi
 
 sudo install -m 644 "$DEPLOY_DIR/familychatui.service" /etc/systemd/system/familychatui.service
+sudo install -m 644 "$DEPLOY_DIR/familychatui-geo.service" /etc/systemd/system/familychatui-geo.service
+sudo install -m 644 "$DEPLOY_DIR/familychatui-geo.timer" /etc/systemd/system/familychatui-geo.timer
 sudo systemctl daemon-reload
 sudo systemctl enable familychatui
 
@@ -59,6 +62,15 @@ test "$(grep -c / <<<"$ranges")" -gt 10
 } | sudo tee /etc/nginx/snippets/cloudflare-realip.conf >/dev/null
 if ! sudo grep -q cloudflare-realip "/etc/nginx/sites-available/$DOMAIN"; then
     sudo sed -i "0,/server_name $DOMAIN;/s//&\n    include \/etc\/nginx\/snippets\/cloudflare-realip.conf;/" "/etc/nginx/sites-available/$DOMAIN"
+fi
+# Only Vietnam + Singapore may use the chat site: build the allowlist (DB-IP, refreshed monthly by a timer),
+# then make the HTTPS server answer 403 to everyone else. Port 80 keeps serving certificate renewals.
+if [[ ! -f /etc/nginx/conf.d/familychatui-geo.conf ]]; then
+    sudo python3 "$ROOT/deploy/update-geo-allowlist.py"
+fi
+sudo systemctl enable --now familychatui-geo.timer
+if ! sudo grep -q 'familychat_allowed' "/etc/nginx/sites-available/$DOMAIN"; then
+    sudo sed -i '0,/include \/etc\/nginx\/snippets\/cloudflare-realip.conf;/s//&\n    if ($familychat_allowed = 0) { return 403; }/' "/etc/nginx/sites-available/$DOMAIN"
 fi
 if ! sudo grep -q "proxy_set_header CF-Connecting-IP" "/etc/nginx/sites-available/$DOMAIN"; then
     sudo sed -i 's/^\( *\)proxy_set_header X-Real-IP \$remote_addr;/&\n\1proxy_set_header CF-Connecting-IP $remote_addr;/' "/etc/nginx/sites-available/$DOMAIN"

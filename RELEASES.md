@@ -2,6 +2,10 @@
 
 Every merge to `main` deploys automatically and gets an entry here, newest first. Versions follow `package.json`: new features bump the minor number, fixes the patch number.
 
+## 0.3.1 (2026-11-14)
+
+- **Only Vietnam and Singapore can open the app.** Visitors from anywhere else get "403 Forbidden". The country list comes from DB-IP and refreshes itself every month. The other sites on the server are not affected.
+
 ## 0.3.0 (2026-11-14)
 
 - **Pin chats.** "Keep forever" is now **Pin**: pinned chats sit in their own section at the top of the sidebar, are still never deleted, and can be dragged into any order by their grip (mouse, touch, or keyboard: Space, arrow keys, Space). New pins go to the top. Chats that were kept forever are now pinned.
