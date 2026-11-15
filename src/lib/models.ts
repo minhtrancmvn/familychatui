@@ -8,6 +8,7 @@ const DEEPSEEK = "/icons/models/deepseek.svg";
  * Names, descriptions and tags are placeholders; the backend will merge this with live /v1/models data.
  * `search` and `vision` mirror `capabilities` from /v1/models on 2026-11-14. The server re-reads the live values
  * before each reply, so these only drive the UI (search badge, image warning).
+ * Image models (`image: true`) aren't listed in /v1/models; 9router serves them on /v1/images/generations.
  * Logos: SVG Logos by Gil Barbara (CC0), fetched with the taste skill's icons.mjs.
  */
 export const MODELS: ModelInfo[] = [
@@ -69,6 +70,23 @@ export const MODELS: ModelInfo[] = [
     initials: "GL",
     color: "#127a6b",
     tags: ["Long context"],
+    via: "ChatGPT (Codex)",
+  },
+  {
+    // 9router's newest Codex image model on 2026-11-15 (about 10 s per picture; needs ChatGPT Plus accounts).
+    id: "cx/gpt-image-2.6-flare",
+    image: true,
+    search: false,
+    vision: true,
+    name: "GPT Image",
+    description: {
+      en: "Makes pictures from your description. Attach a photo to change it. In the same chat, your next message changes the picture it just made.",
+      vi: "Vẽ ảnh theo mô tả của bạn. Gửi kèm ảnh để chỉnh sửa ảnh đó. Trong cùng cuộc trò chuyện, tin nhắn ngay sau sẽ sửa ảnh vừa vẽ.",
+    },
+    logo: OPENAI,
+    initials: "GI",
+    color: "#0f8f7e",
+    tags: ["Image"],
     via: "ChatGPT (Codex)",
   },
   {

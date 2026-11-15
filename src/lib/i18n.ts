@@ -95,6 +95,7 @@ const en = {
   "composer.hintAt": "Type @ to switch model",
   "composer.hintShift": "Shift+Enter for a new line",
   "composer.hintCmd": "⌘/Ctrl+Enter to send",
+  "composer.describePicture": "Describe the picture you want",
 
   "models.choose": "Choose a model",
   "models.search": "Search models",
@@ -113,6 +114,10 @@ const en = {
   "msg.regenerate": "Regenerate",
   "msg.retryWith": "Retry with…",
   "msg.retryTitle": "Retry with another model",
+  "msg.drawing": "Drawing the picture",
+  "msg.picture": "Picture made by {model}",
+  "msg.openPicture": "Open the picture full size",
+  "msg.download": "Download",
 
   "home.chattingAs": "Chatting as {name}",
   "home.title": "Start a new chat",
@@ -137,6 +142,7 @@ const en = {
   "tag.Reasoning": "Reasoning",
   "tag.Vision": "Vision",
   "tag.Long context": "Long context",
+  "tag.Image": "Pictures",
 
   "settings.title": "Settings",
   "settings.defaultModel": "Default model for new chats",
@@ -301,6 +307,7 @@ const vi: Dict = {
   "composer.hintAt": "Gõ @ để đổi mô hình",
   "composer.hintShift": "Shift+Enter để xuống dòng",
   "composer.hintCmd": "⌘/Ctrl+Enter để gửi",
+  "composer.describePicture": "Mô tả bức ảnh bạn muốn",
 
   "models.choose": "Chọn mô hình",
   "models.search": "Tìm mô hình",
@@ -319,6 +326,10 @@ const vi: Dict = {
   "msg.regenerate": "Tạo lại",
   "msg.retryWith": "Thử với…",
   "msg.retryTitle": "Thử lại với mô hình khác",
+  "msg.drawing": "Đang vẽ ảnh",
+  "msg.picture": "Ảnh do {model} vẽ",
+  "msg.openPicture": "Mở ảnh cỡ lớn",
+  "msg.download": "Tải về",
 
   "home.chattingAs": "Hồ sơ: {name}",
   "home.title": "Bắt đầu cuộc trò chuyện mới",
@@ -343,6 +354,7 @@ const vi: Dict = {
   "tag.Reasoning": "Suy luận",
   "tag.Vision": "Đọc ảnh",
   "tag.Long context": "Ngữ cảnh dài",
+  "tag.Image": "Vẽ ảnh",
 
   "settings.title": "Cài đặt",
   "settings.defaultModel": "Mô hình mặc định cho cuộc trò chuyện mới",

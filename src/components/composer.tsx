@@ -363,7 +363,7 @@ export function Composer({
           ref={textareaRef}
           rows={1}
           value={text}
-          placeholder={placeholder ?? t("composer.message")}
+          placeholder={model.image ? t("composer.describePicture") : (placeholder ?? t("composer.message"))}
           aria-label={t("composer.message")}
           onChange={(e) => {
             setText(e.target.value);

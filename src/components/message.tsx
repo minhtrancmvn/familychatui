@@ -1,7 +1,7 @@
 "use client";
 
 import clsx from "clsx";
-import { ChevronDown, FileText, Globe, ImageIcon, RefreshCw } from "lucide-react";
+import { ChevronDown, Download, FileText, Globe, ImageIcon, RefreshCw } from "lucide-react";
 import { useState } from "react";
 
 import { ModelAvatar } from "@/components/avatars";
@@ -11,7 +11,7 @@ import { Popover } from "@/components/popover";
 import { getModel } from "@/lib/models";
 import { useT } from "@/lib/i18n";
 import { regenerate } from "@/lib/runner";
-import type { Message } from "@/lib/types";
+import type { Attachment, Message } from "@/lib/types";
 import { formatBytes } from "@/lib/util";
 
 function TypingDots() {
@@ -32,6 +32,51 @@ function Searching() {
       <Globe className="size-4 animate-pulse" />
       {t("search.searching")}…
     </span>
+  );
+}
+
+/** While an image model works (about 10 to 20 seconds): a placeholder the size of a small picture. */
+function Drawing() {
+  const t = useT();
+  return (
+    <div
+      role="status"
+      className="flex aspect-square w-60 max-w-full flex-col items-center justify-center gap-2 rounded-2xl bg-surface-2 text-sm text-muted motion-safe:animate-pulse"
+    >
+      <ImageIcon className="size-6" />
+      {t("msg.drawing")}…
+    </div>
+  );
+}
+
+function pictureUrl(picture: Attachment): string {
+  return `/api/attachments/${picture.id}`;
+}
+
+/** Pictures an image model made. Tapping one opens it full size; long-press on a phone saves it. */
+function Pictures({ pictures, modelName }: { pictures: Attachment[]; modelName: string }) {
+  const t = useT();
+  return (
+    <div className="flex flex-col items-start gap-2">
+      {pictures.map((picture) => (
+        <a
+          key={picture.id}
+          href={pictureUrl(picture)}
+          target="_blank"
+          rel="noopener"
+          aria-label={t("msg.openPicture")}
+          className="inline-block max-w-full overflow-hidden rounded-2xl border border-border bg-surface-2 transition-transform active:scale-[0.99] sm:max-w-md"
+        >
+          {/* eslint-disable-next-line @next/next/no-img-element -- private picture behind the session cookie, not a static asset for the optimizer */}
+          <img
+            src={pictureUrl(picture)}
+            alt={t("msg.picture", { model: modelName })}
+            className="block h-auto max-h-[70vh] w-auto max-w-full"
+            decoding="async"
+          />
+        </a>
+      ))}
+    </div>
   );
 }
 
@@ -98,6 +143,7 @@ export function ChatMessage({ chatId, message, isLatest }: { chatId: string; mes
 
   const model = getModel(message.modelId);
   const streaming = message.status === "streaming";
+  const pictures = message.attachments?.filter((a) => a.kind === "image") ?? [];
 
   return (
     <div className="group flex gap-3">
@@ -112,15 +158,21 @@ export function ChatMessage({ chatId, message, isLatest }: { chatId: string; mes
             </span>
           ) : null}
         </div>
-        <div className="inline-block max-w-full rounded-[22px] rounded-tl-md bg-bubble-bot px-4 py-3 text-[15px]">
-          {message.content ? (
-            <Markdown text={message.content} streaming={streaming} />
-          ) : streaming ? (
-            message.sources ? <Searching /> : <TypingDots />
-          ) : (
-            <span className="text-muted">{t("msg.empty")}</span>
-          )}
-        </div>
+        {pictures.length > 0 ? (
+          <Pictures pictures={pictures} modelName={model.name} />
+        ) : streaming && model.image ? (
+          <Drawing />
+        ) : (
+          <div className="inline-block max-w-full rounded-[22px] rounded-tl-md bg-bubble-bot px-4 py-3 text-[15px]">
+            {message.content ? (
+              <Markdown text={message.content} streaming={streaming} />
+            ) : streaming ? (
+              message.sources ? <Searching /> : <TypingDots />
+            ) : (
+              <span className="text-muted">{t("msg.empty")}</span>
+            )}
+          </div>
+        )}
         {message.content && <SourceList message={message} />}
         {message.status === "stopped" && <div className="mt-1 text-xs text-muted">{t("msg.stopped")}</div>}
         {message.status === "error" && (
@@ -138,7 +190,16 @@ export function ChatMessage({ chatId, message, isLatest }: { chatId: string; mes
               !isLatest && "md:opacity-0 md:group-focus-within:opacity-100 md:group-hover:opacity-100",
             )}
           >
-            <CopyButton text={message.content} className={actionClass} />
+            {pictures.length > 0 ? (
+              pictures.map((picture) => (
+                <a key={picture.id} href={pictureUrl(picture)} download={picture.name} className={actionClass}>
+                  <Download className="size-3.5" />
+                  {t("msg.download")}
+                </a>
+              ))
+            ) : (
+              <CopyButton text={message.content} className={actionClass} />
+            )}
             {isLatest && (
               <>
                 <button type="button" className={actionClass} onClick={() => regenerate(chatId, message.id)}>

@@ -59,6 +59,7 @@ Private, Poe-style chat app for the owner's family. Its only model provider is a
 - The app icon is a white house-shaped speech bubble with three orange dots on an orange `#ff5500` tile (home + chat), chosen by the owner. No letters: a lone "f" on a tile read as Facebook. `scripts/app-icon/draw.mjs` holds the shape and `build.sh` regenerates `src/app/{icon.svg,apple-icon.png,favicon.ico}` and `public/icons/app/*.png` (used by `src/app/manifest.ts`). `src/components/logo.tsx` inlines the same shape; change both together.
 - All UI text goes through `src/lib/i18n.ts` (`useT()`), in both `en` and `vi`. Language is per profile; the login and profile screens use the device's last language. Chat replies follow the language of the prompt, not the UI language.
 - Accent is `#ff5500` (`bg-accent`) only for icon-only fills, rings and highlights. Text on orange uses `bg-accent-strong` (`#d04400`, 4.66:1 with white). Never put normal-size white text on `bg-accent`.
+- Image models (`image: true` in `src/lib/models.ts`, now `cx/gpt-image-2.6-flare`) aren't in 9router's `/v1/models`; replies call `/v1/images/generations` with the latest message as the prompt and, as references, that message's photos or else the picture in the reply right before. Pictures are attachment rows on the reply (data URLs, deleted with the chat or on Regenerate), served by `GET /api/attachments/[id]` (owner only, PNG/JPEG/WebP/GIF, CSP sandbox). Text models see a picture reply as a note naming the image model, and their system prompt says they can't draw. `E2E_IMAGE=1 npm run e2e` makes and edits two real pictures.
 - Web search is always on for models with `search: true` (mirrors 9router's `capabilities.search`). The model decides per question whether to search; replies that searched carry `sources`.
 - The taste skill's design rules were applied (tap targets of at least 44px on phones, press feedback, no violet, verb-plus-object buttons). Its marketing-page gate doesn't fit an app and is not run.
 
@@ -78,7 +79,7 @@ Private, Poe-style chat app for the owner's family. Its only model provider is a
 <!-- gitnexus:start -->
 # GitNexus — Code Intelligence
 
-This project is indexed by GitNexus as **familychatui** (417 symbols, 978 relationships, 34 execution flows). Use the GitNexus MCP tools to understand code, assess impact, and navigate safely.
+This project is indexed by GitNexus as **familychatui** (882 symbols, 2469 relationships, 73 execution flows). Use the GitNexus MCP tools to understand code, assess impact, and navigate safely.
 
 > Index stale? Run `node .gitnexus/run.cjs analyze` from the project root — it auto-selects an available runner. No `.gitnexus/run.cjs` yet? `npx gitnexus analyze` (npm 11 crash → `npm i -g gitnexus`; #1939).
 

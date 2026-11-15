@@ -2,6 +2,12 @@
 
 Every merge to `main` deploys automatically and gets an entry here, newest first. Versions follow `package.json`: new features bump the minor number, fixes the patch number.
 
+## 0.5.0 (2026-11-15)
+
+- **Make pictures.** Pick **GPT Image** in the model menu and describe what you want; the picture appears in the chat after about 10 seconds. Tap it to see it full size, press **Download** to save it, or long-press it on a phone to save it to Photos.
+- **Change pictures.** Attach a photo and say what to change, or, right after a picture, just ask ("now make the house blue"). Start a new chat for a fresh picture.
+- The other models now say they can't draw and point you to GPT Image, instead of pretending to.
+
 ## 0.4.3 (2026-11-15)
 
 - **The app opens from anywhere again.** It was limited to Vietnam and Singapore, but iPhones and Macs with iCloud Private Relay often look like they're somewhere else, so family members could get "403 Forbidden" instead of the app. The family password and PINs still keep everyone else out.

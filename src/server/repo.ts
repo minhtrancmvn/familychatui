@@ -1,6 +1,6 @@
 import "server-only";
 
-import { DEFAULT_HIDDEN_MODEL_IDS, DEFAULT_MODEL_ID, hasModel, MODELS } from "@/lib/models";
+import { DEFAULT_HIDDEN_MODEL_IDS, DEFAULT_MODEL_ID, getModel, hasModel, MODELS } from "@/lib/models";
 import type {
   Attachment,
   Chat,
@@ -15,6 +15,7 @@ import type {
 } from "@/lib/types";
 
 import { db, tx } from "./db";
+import type { GeneratedImage } from "./ninerouter";
 
 // ---------- profiles ----------
 
@@ -235,13 +236,41 @@ function messageRows(chatId: string): MessageRow[] {
     .all(chatId) as unknown as MessageRow[];
 }
 
-function attachmentRows(chatId: string, withData: boolean): AttachmentRow[] {
+function attachmentRows(chatId: string, withData: boolean, userOnly = false): AttachmentRow[] {
   const cols = withData ? "a.*" : "a.id, a.message_id, a.name, a.size, a.kind, a.mime, '' AS data";
   return db()
     .prepare(
-      `SELECT ${cols} FROM attachments a JOIN messages m ON m.id = a.message_id WHERE m.chat_id = ? ORDER BY a.message_id, a.position`,
+      `SELECT ${cols} FROM attachments a JOIN messages m ON m.id = a.message_id WHERE m.chat_id = ?${userOnly ? " AND m.role = 'user'" : ""} ORDER BY a.message_id, a.position`,
     )
     .all(chatId) as unknown as AttachmentRow[];
+}
+
+/** Replies in the chat that are pictures from an image model (their text is empty). */
+function pictureReplyIds(chatId: string): Set<string> {
+  const rows = db()
+    .prepare(
+      "SELECT DISTINCT a.message_id FROM attachments a JOIN messages m ON m.id = a.message_id WHERE m.chat_id = ? AND m.role = 'assistant'",
+    )
+    .all(chatId) as Array<{ message_id: string }>;
+  return new Set(rows.map((r) => r.message_id));
+}
+
+/** Name, size and kind of a message's attachments (for a reply: the pictures an image model made). */
+export function messageAttachments(messageId: string): Attachment[] {
+  return db()
+    .prepare("SELECT id, name, size, kind FROM attachments WHERE message_id = ? ORDER BY position")
+    .all(messageId) as unknown as Attachment[];
+}
+
+/** A picture from one of the profile's chats (an upload or a generated one), with its data: URL. */
+export function getImageAttachment(profileId: string, attachmentId: string): { name: string; data: string } | null {
+  const row = db()
+    .prepare(
+      `SELECT a.name, a.data FROM attachments a JOIN messages m ON m.id = a.message_id JOIN chats c ON c.id = m.chat_id
+       WHERE a.id = ? AND c.profile_id = ? AND a.kind = 'image'`,
+    )
+    .get(attachmentId, profileId) as { name: string; data: string } | undefined;
+  return row ?? null;
 }
 
 /** The chat with its messages, if it belongs to the profile. Attachment contents stay on the server. */
@@ -274,13 +303,14 @@ export function untitledFirstExchange(chatId: string): { user: string; assistant
   if (chat?.title_state !== "initial") return null;
   const rows = messageRows(chatId);
   const user = rows.find((m) => m.role === "user");
-  const reply = rows.find((m) => m.role === "assistant" && m.status === "done" && m.content.trim());
+  const pictures = pictureReplyIds(chatId);
+  const reply = rows.find((m) => m.role === "assistant" && m.status === "done" && (m.content.trim() || pictures.has(m.id)));
   if (!user || !reply) return null;
   const names = (db().prepare("SELECT name FROM attachments WHERE message_id = ? ORDER BY position").all(user.id) as Array<{ name: string }>)
     .map((a) => a.name)
     .join(", ");
   const question = [user.content.trim(), names && `(attached: ${names})`].filter(Boolean).join("\n");
-  return { user: question, assistant: reply.content };
+  return { user: question, assistant: reply.content.trim() || pictureNote(reply.model_id) };
 }
 
 /** Saves a model-written title unless someone renamed the chat meanwhile. */
@@ -391,6 +421,7 @@ export function resetReply(chatId: string, replyId: string, modelId: string): vo
     conn
       .prepare("UPDATE messages SET content = '', status = 'streaming', model_id = ?, sources = NULL, error = NULL WHERE id = ?")
       .run(modelId, replyId);
+    conn.prepare("DELETE FROM attachments WHERE message_id = ?").run(replyId);
     conn.prepare("UPDATE chats SET model_id = ?, updated_at = ? WHERE id = ?").run(modelId, Date.now(), chatId);
   });
 }
@@ -399,19 +430,39 @@ export function saveReplyProgress(replyId: string, content: string): void {
   db().prepare("UPDATE messages SET content = ? WHERE id = ? AND status = 'streaming'").run(content, replyId);
 }
 
+/** "image-2026-11-15-0712.png": a download name for a generated picture. */
+function pictureName(mime: string, at: Date, index: number): string {
+  const stamp = at.toISOString().slice(0, 16).replace("T", "-").replace(":", "");
+  const ext = mime === "image/jpeg" ? "jpg" : mime.slice("image/".length);
+  return `image-${stamp}${index ? `-${index + 1}` : ""}.${ext}`;
+}
+
+/** Saves the finished reply and the pictures an image model made. Returns those pictures' details. */
 export function finishReply(
   replyId: string,
-  result: { content: string; status: Exclude<MessageStatus, "streaming">; sources: Source[]; error?: string },
-): void {
-  db()
-    .prepare("UPDATE messages SET content = ?, status = ?, sources = ?, error = ? WHERE id = ?")
-    .run(
-      result.content,
-      result.status,
-      result.sources.length ? JSON.stringify(result.sources) : null,
-      result.error ?? null,
-      replyId,
+  result: { content: string; status: Exclude<MessageStatus, "streaming">; sources: Source[]; error?: string; images?: GeneratedImage[] },
+): Attachment[] {
+  const now = new Date();
+  return tx(() => {
+    const conn = db();
+    conn
+      .prepare("UPDATE messages SET content = ?, status = ?, sources = ?, error = ? WHERE id = ?")
+      .run(
+        result.content,
+        result.status,
+        result.sources.length ? JSON.stringify(result.sources) : null,
+        result.error ?? null,
+        replyId,
+      );
+    const insert = conn.prepare(
+      "INSERT INTO attachments (id, message_id, position, name, size, kind, mime, data) VALUES (?, ?, ?, ?, ?, 'image', ?, ?)",
     );
+    return (result.images ?? []).map((image, i): Attachment => {
+      const attachment: Attachment = { id: crypto.randomUUID(), name: pictureName(image.mime, now, i), size: image.size, kind: "image" };
+      insert.run(attachment.id, replyId, i, attachment.name, attachment.size, image.mime, image.data);
+      return attachment;
+    });
+  });
 }
 
 export interface HistoryMessage {
@@ -420,18 +471,53 @@ export interface HistoryMessage {
   attachments: Array<{ name: string; kind: "image" | "file"; mime: string; data: string }>;
 }
 
-/** The conversation that leads up to (not including) the given reply, with attachment contents, for the model. */
+/**
+ * Stands in for a picture reply in the conversation a model reads (and in title requests). It names the
+ * image model, so a text model doesn't take the picture for something it claimed to do itself.
+ */
+function pictureNote(modelId: string): string {
+  return `[${getModel(modelId).name} made a picture for this request, and the user can see it.]`;
+}
+
+/**
+ * The conversation that leads up to (not including) the given reply, with the contents of what people
+ * attached, for the model. A reply that was a picture shows up as a short note.
+ */
 export function historyBefore(chatId: string, replyId: string): HistoryMessage[] {
   const rows = messageRows(chatId);
   const end = rows.findIndex((m) => m.id === replyId);
   const byMessage = new Map<string, HistoryMessage["attachments"]>();
-  for (const a of attachmentRows(chatId, true)) {
+  for (const a of attachmentRows(chatId, true, true)) {
     const list = byMessage.get(a.message_id) ?? [];
     list.push({ name: a.name, kind: a.kind, mime: a.mime, data: a.data });
     byMessage.set(a.message_id, list);
   }
+  const pictureReplies = pictureReplyIds(chatId);
   return rows
     .slice(0, end < 0 ? rows.length : end)
-    .filter((m) => m.role === "user" || m.content.trim().length > 0)
-    .map((m) => ({ role: m.role, content: m.content, attachments: byMessage.get(m.id) ?? [] }));
+    .filter((m) => m.role === "user" || m.content.trim().length > 0 || pictureReplies.has(m.id))
+    .map((m) => ({
+      role: m.role,
+      content: m.role === "assistant" && !m.content.trim() ? pictureNote(m.model_id) : m.content,
+      attachments: byMessage.get(m.id) ?? [],
+    }));
+}
+
+/**
+ * Pictures for an image model to change, as data: URLs: the photos attached to the message it answers,
+ * else the picture it made in the reply before (so "now give it a hat" edits that picture). None in a new chat.
+ */
+export function imageRefsFor(chatId: string, replyId: string): string[] {
+  const rows = messageRows(chatId);
+  const end = rows.findIndex((m) => m.id === replyId);
+  const images = (messageId: string) =>
+    (db().prepare("SELECT data FROM attachments WHERE message_id = ? AND kind = 'image' ORDER BY position").all(messageId) as Array<{ data: string }>).map(
+      (r) => r.data,
+    );
+  const question = rows[end - 1];
+  if (end < 1 || question.role !== "user") return [];
+  const attached = images(question.id);
+  if (attached.length) return attached;
+  const previous = rows[end - 2];
+  return previous?.role === "assistant" && previous.status === "done" ? images(previous.id) : [];
 }
