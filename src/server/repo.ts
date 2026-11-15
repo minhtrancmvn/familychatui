@@ -12,6 +12,7 @@ import type {
   Profile,
   ProfileInput,
   Source,
+  UsageReport,
 } from "@/lib/types";
 
 import { db, tx } from "./db";
@@ -520,4 +521,71 @@ export function imageRefsFor(chatId: string, replyId: string): string[] {
   if (attached.length) return attached;
   const previous = rows[end - 2];
   return previous?.role === "assistant" && previous.status === "done" ? images(previous.id) : [];
+}
+
+// ---------- usage (admin) ----------
+
+const DAY_MS = 24 * 60 * 60 * 1000;
+
+/**
+ * Family usage over the last `days` local days (today included). `tzOffsetMinutes` is the viewer's
+ * offset from UTC (+420 in Vietnam), so days start at their midnight. Counts only what still exists:
+ * chats removed by the retention cleanup or by their owner are gone from these numbers too.
+ */
+export function usageReport(days: number, tzOffsetMinutes: number): UsageReport {
+  const conn = db();
+  const offset = tzOffsetMinutes * 60_000;
+  const today = Math.floor((Date.now() + offset) / DAY_MS);
+  const firstDay = today - days + 1;
+  const since = firstDay * DAY_MS - offset;
+  const count = (sql: string) => (conn.prepare(sql).get(since) as { n: number }).n;
+
+  const replies = conn
+    .prepare(
+      `SELECT m.model_id AS modelId, COUNT(*) AS replies, SUM(m.status = 'error') AS failed,
+              COALESCE(SUM((SELECT COUNT(*) FROM attachments a WHERE a.message_id = m.id)), 0) AS pictures
+       FROM messages m WHERE m.role = 'assistant' AND m.status != 'streaming' AND m.created_at >= ?
+       GROUP BY m.model_id ORDER BY replies DESC, m.model_id`,
+    )
+    .all(since) as Array<{ modelId: string; replies: number; failed: number; pictures: number }>;
+
+  const perDay = new Map(
+    (
+      conn
+        .prepare(
+          "SELECT CAST((created_at + ?) / 86400000 AS INTEGER) AS d, COUNT(*) AS n FROM messages WHERE role = 'user' AND created_at >= ? GROUP BY d",
+        )
+        .all(offset, since) as Array<{ d: number; n: number }>
+    ).map((r) => [r.d, r.n]),
+  );
+  const daily = Array.from({ length: days }, (_, i) => ({
+    day: new Date((firstDay + i) * DAY_MS).toISOString().slice(0, 10),
+    messages: perDay.get(firstDay + i) ?? 0,
+  }));
+
+  const errors = conn
+    .prepare(
+      `SELECT error, COUNT(*) AS count FROM messages
+       WHERE role = 'assistant' AND status = 'error' AND error IS NOT NULL AND created_at >= ?
+       GROUP BY error ORDER BY count DESC, error LIMIT 5`,
+    )
+    .all(since) as Array<{ error: string; count: number }>;
+
+  return {
+    days,
+    totals: {
+      messages: count("SELECT COUNT(*) AS n FROM messages WHERE role = 'user' AND created_at >= ?"),
+      newChats: count("SELECT COUNT(*) AS n FROM chats WHERE created_at >= ?"),
+      replies: replies.reduce((sum, r) => sum + r.replies, 0),
+      failed: replies.reduce((sum, r) => sum + r.failed, 0),
+      pictures: replies.reduce((sum, r) => sum + r.pictures, 0),
+      activeProfiles: count(
+        "SELECT COUNT(DISTINCT c.profile_id) AS n FROM messages m JOIN chats c ON c.id = m.chat_id WHERE m.role = 'user' AND m.created_at >= ?",
+      ),
+      profiles: countProfiles(),
+    },
+    daily,
+    models: replies,
+    errors,
+  };
 }

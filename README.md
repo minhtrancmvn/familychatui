@@ -17,6 +17,7 @@ What changed in each version: [RELEASES.md](RELEASES.md).
 - **Pictures.** GPT Image draws what you describe, changes a photo you attach, and in the same chat changes the picture it just made ("now make it blue"). Pictures stay with the chat and can be downloaded.
 - **Chats name themselves** after the first reply, with a short title in the chat's language.
 - **Pinned chats** stay at the top of the list, in the order you drag them to, and are never deleted.
+- **Family usage for the admin.** Settings shows messages per day, replies and failures per model, pictures made and how many profiles are active (a count, never who said what), over 7, 30 or 90 days.
 - **Chat history that cleans itself up.** Chats with no new message for 90 days are deleted automatically unless pinned. Each person can also clear their own old chats in Settings.
 - **Replies follow the language of the question**, whatever the app's language is.
 - **Add to Home Screen.** A web app manifest and icons for browser tabs, iPhone and Android, so the app opens full screen like an installed one.
@@ -67,6 +68,7 @@ The server never runs npm. Releases are uploaded through `deploy-gate`, the only
 - The 9router API key never reaches the browser; every model call is made by the server.
 - Sessions are a signed, httpOnly cookie whose key is derived from the family password, so changing the password signs out every other device.
 - PINs and the family password are scrypt-hashed. Wrong guesses are rate-limited per visitor IP and per profile.
+- With `NEXT_PUBLIC_GTM_ID` set, the app sends Google Analytics events (`src/lib/analytics.ts`) with labels and numbers only: never message text, chat titles, file or profile names, or ids.
 - The CI deploy key can only upload or activate a release, and the app runs as its own user without sudo or access to `/home`.
 
 ## Credits

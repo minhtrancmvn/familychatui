@@ -10,6 +10,7 @@ import { Popover } from "@/components/popover";
 import { IconButton, PRESS } from "@/components/ui";
 import { ACCEPT, checkFile, encodeAttachment, isDocument, readDocument } from "@/lib/attachments";
 import { useT } from "@/lib/i18n";
+import { track } from "@/lib/analytics";
 import { getModel } from "@/lib/models";
 import { useAppStore, useVisibleModels } from "@/lib/store";
 import type { Attachment, OutgoingAttachment } from "@/lib/types";
@@ -142,6 +143,7 @@ export function Composer({
     setText(next);
     setCaret(start);
     setMentionIndex(0);
+    track("model_switch", { model: id, via: "mention" });
     onModelChange(id);
     requestAnimationFrame(() => {
       const el = textareaRef.current;
@@ -171,6 +173,8 @@ export function Composer({
       }
       setDrafts((list) => list.filter((d) => d.attachment.id !== id));
       const name = draft.attachment.name;
+      const reasons = { "too-big": "too_big", empty: "no_text", unsupported: "unsupported", failed: "read_failed" } as const;
+      track("attachment_rejected", { reason: reasons[result.error] });
       setNotice(
         result.error === "too-big"
           ? t("composer.tooBig", { name })
@@ -190,6 +194,7 @@ export function Composer({
       const name = file.name || "pasted-image.png";
       const check = checkFile(file);
       if (check !== "ok") {
+        track("attachment_rejected", { reason: check === "too-big" ? "too_big" : "unsupported" });
         setNotice(check === "too-big" ? t("composer.tooBig", { name }) : t("composer.unsupported"));
         continue;
       }
@@ -414,6 +419,7 @@ export function Composer({
             <ModelMenu
               selectedId={modelId}
               onSelect={(id) => {
+                track("model_switch", { model: id, via: "menu" });
                 onModelChange(id);
                 setMenuOpen(false);
                 textareaRef.current?.focus();

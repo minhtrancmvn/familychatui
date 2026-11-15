@@ -130,3 +130,26 @@ export type ReplyEvent =
   | { type: "title"; title: string }
   /** Nothing more is coming on this stream. */
   | { type: "end" };
+
+/** Family usage for the admin's Settings, counted from the chats on the server. */
+export interface UsageReport {
+  days: number;
+  totals: {
+    /** Messages people sent. */
+    messages: number;
+    newChats: number;
+    /** Finished replies (done, stopped or failed); a regenerated reply counts once. */
+    replies: number;
+    failed: number;
+    pictures: number;
+    /** Profiles that sent at least one message. */
+    activeProfiles: number;
+    profiles: number;
+  };
+  /** Messages per local day, oldest first, every day of the period. `day` is YYYY-MM-DD. */
+  daily: Array<{ day: string; messages: number }>;
+  /** Most replies first. */
+  models: Array<{ modelId: string; replies: number; failed: number; pictures: number }>;
+  /** The five most common error messages. */
+  errors: Array<{ error: string; count: number }>;
+}

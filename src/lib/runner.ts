@@ -1,3 +1,4 @@
+import { errorKind, track } from "./analytics";
 import { api, ApiError, errorFrom } from "./api";
 import { hasModel } from "./models";
 import { useAppStore } from "./store";
@@ -54,11 +55,41 @@ async function readEvents(res: Response, onEvent: (event: ReplyEvent) => void): 
   }
 }
 
-/** Applies server events to the reply until it's done, re-attaching after dropped connections. */
-async function follow(chatId: string, replyId: string, open: (signal: AbortSignal) => Promise<Response>) {
+/**
+ * Applies server events to the reply until it's done, re-attaching after dropped connections.
+ * `kind`: who started it here. A reply this tab only re-attached to ("resume") isn't reported to
+ * analytics, so a reload doesn't count it twice.
+ */
+async function follow(
+  chatId: string,
+  replyId: string,
+  open: (signal: AbortSignal) => Promise<Response>,
+  kind: "send" | "retry" | "resume",
+) {
   followers.get(replyId)?.abort();
   const controller = new AbortController();
   followers.set(replyId, controller);
+
+  const startedAt = performance.now();
+  let firstTextAt: number | undefined;
+  let reconnects = 0;
+  let reported = false;
+  const report = (status: string, error: string | undefined, picture = false) => {
+    if (kind === "resume" || reported) return;
+    reported = true;
+    const message = findMessage(chatId, replyId);
+    track("reply_done", {
+      model: message?.modelId,
+      kind,
+      status,
+      error_kind: errorKind(error),
+      ttft_ms: firstTextAt === undefined ? undefined : Math.round(firstTextAt - startedAt),
+      duration_ms: Math.round(performance.now() - startedAt),
+      searched: Boolean(message?.sources?.length),
+      picture,
+      reconnects,
+    });
+  };
 
   const patch = (p: Partial<Omit<Message, "id">>) => {
     if (!findMessage(chatId, replyId)) {
@@ -82,6 +113,7 @@ async function follow(chatId: string, replyId: string, open: (signal: AbortSigna
         if (!findMessage(chatId, replyId)?.sources) patch({ sources: [] });
         break;
       case "delta":
+        firstTextAt ??= performance.now();
         patch({ content: (findMessage(chatId, replyId)?.content ?? "") + event.text });
         break;
       case "sources":
@@ -97,6 +129,7 @@ async function follow(chatId: string, replyId: string, open: (signal: AbortSigna
           ...(event.attachments ? { attachments: event.attachments } : {}),
         });
         finished = true;
+        report(event.status, event.error, Boolean(event.attachments?.length));
         break;
       }
       case "title":
@@ -115,7 +148,9 @@ async function follow(chatId: string, replyId: string, open: (signal: AbortSigna
         if (!res.ok) {
           const err = await errorFrom(res);
           if (err.status === 401 || err.code === "no-profile") return;
-          patch({ status: "error", error: err.code === "busy" ? "Another reply is still being written." : err.code });
+          const error = err.code === "busy" ? "Another reply is still being written." : err.code;
+          patch({ status: "error", error });
+          report("error", error);
           return;
         }
         await readEvents(res, onEvent);
@@ -125,8 +160,10 @@ async function follow(chatId: string, replyId: string, open: (signal: AbortSigna
       if (finished || controller.signal.aborted) return;
       if (attempt >= MAX_RECONNECTS) {
         patch({ status: "error", error: "Lost the connection to the server." });
+        report("error", "Lost the connection to the server.");
         return;
       }
+      reconnects += 1;
       // Dropped before the end (phone slept, signal lost): wait, then re-attach to the same reply.
       await sleep(Math.min(1000 * (attempt + 1), 5000), controller.signal);
       open = (signal) => fetch(`/api/chats/${chatId}/messages/${replyId}/stream`, { signal, cache: "no-store" });
@@ -165,10 +202,19 @@ export function sendMessage(opts: { chatId: string; text: string; modelId: strin
     attachments: attachments.length ? attachments.map(({ id, name, size, kind }) => ({ id, name, size, kind })) : undefined,
   });
   state.addMessage(chatId, { id: replyId, role: "assistant", content: "", modelId, createdAt: now + 1, status: "streaming" });
+  const photos = attachments.filter((a) => a.kind === "image").length;
+  const files = attachments.length - photos;
+  track("message_send", {
+    model: modelId,
+    new_chat: !chat?.messages.length,
+    attachment: photos && files ? "both" : photos ? "photo" : files ? "file" : "none",
+    attachment_count: attachments.length,
+  });
   void follow(
     chatId,
     replyId,
     post(`/api/chats/${chatId}/messages`, { userMessageId, replyId, text, modelId, attachments, title: chat?.title }),
+    "send",
   );
 }
 
@@ -187,7 +233,8 @@ export function regenerate(chatId: string, messageId: string, modelId?: string) 
     attachments: undefined,
   });
   state.setChatModel(chatId, useModel);
-  void follow(chatId, messageId, post(`/api/chats/${chatId}/messages/${messageId}/regenerate`, { modelId: useModel }));
+  track("reply_retry", { model: useModel, other_model: useModel !== message.modelId });
+  void follow(chatId, messageId, post(`/api/chats/${chatId}/messages/${messageId}/regenerate`, { modelId: useModel }), "retry");
 }
 
 /** Re-attaches to replies that were still being written when the chat was loaded (reload, other device). */
@@ -195,8 +242,11 @@ export function resumeStreaming(chatId: string) {
   const chat = useAppStore.getState().chats.find((c) => c.id === chatId);
   for (const m of chat?.messages ?? []) {
     if (m.status === "streaming" && !followers.has(m.id)) {
-      void follow(chatId, m.id, (signal) =>
-        fetch(`/api/chats/${chatId}/messages/${m.id}/stream`, { signal, cache: "no-store" }),
+      void follow(
+        chatId,
+        m.id,
+        (signal) => fetch(`/api/chats/${chatId}/messages/${m.id}/stream`, { signal, cache: "no-store" }),
+        "resume",
       );
     }
   }
@@ -204,6 +254,7 @@ export function resumeStreaming(chatId: string) {
 
 /** The Stop button: the server ends the reply and the stream reports it as stopped. */
 export function stopReply(chatId: string, messageId: string) {
+  track("reply_stop", { model: findMessage(chatId, messageId)?.modelId });
   api(`/api/chats/${chatId}/messages/${messageId}/stop`, { body: {} }).catch((err: unknown) => {
     if (!(err instanceof ApiError)) console.warn("Stop failed:", err);
   });

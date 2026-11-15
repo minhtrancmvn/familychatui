@@ -8,6 +8,7 @@ import { ModelAvatar } from "@/components/avatars";
 import { CopyButton, Markdown } from "@/components/markdown";
 import { ModelMenu } from "@/components/model-menu";
 import { Popover } from "@/components/popover";
+import { track } from "@/lib/analytics";
 import { getModel } from "@/lib/models";
 import { useT } from "@/lib/i18n";
 import { regenerate } from "@/lib/runner";
@@ -54,7 +55,7 @@ function pictureUrl(picture: Attachment): string {
 }
 
 /** Pictures an image model made. Tapping one opens it full size; long-press on a phone saves it. */
-function Pictures({ pictures, modelName }: { pictures: Attachment[]; modelName: string }) {
+function Pictures({ pictures, model }: { pictures: Attachment[]; model: { id: string; name: string } }) {
   const t = useT();
   return (
     <div className="flex flex-col items-start gap-2">
@@ -65,12 +66,13 @@ function Pictures({ pictures, modelName }: { pictures: Attachment[]; modelName: 
           target="_blank"
           rel="noopener"
           aria-label={t("msg.openPicture")}
+          onClick={() => track("picture_open", { model: model.id })}
           className="inline-block max-w-full overflow-hidden rounded-2xl border border-border bg-surface-2 transition-transform active:scale-[0.99] sm:max-w-md"
         >
           {/* eslint-disable-next-line @next/next/no-img-element -- private picture behind the session cookie, not a static asset for the optimizer */}
           <img
             src={pictureUrl(picture)}
-            alt={t("msg.picture", { model: modelName })}
+            alt={t("msg.picture", { model: model.name })}
             className="block h-auto max-h-[70vh] w-auto max-w-full"
             decoding="async"
           />
@@ -159,7 +161,7 @@ export function ChatMessage({ chatId, message, isLatest }: { chatId: string; mes
           ) : null}
         </div>
         {pictures.length > 0 ? (
-          <Pictures pictures={pictures} modelName={model.name} />
+          <Pictures pictures={pictures} model={model} />
         ) : streaming && model.image ? (
           <Drawing />
         ) : (
@@ -192,13 +194,19 @@ export function ChatMessage({ chatId, message, isLatest }: { chatId: string; mes
           >
             {pictures.length > 0 ? (
               pictures.map((picture) => (
-                <a key={picture.id} href={pictureUrl(picture)} download={picture.name} className={actionClass}>
+                <a
+                  key={picture.id}
+                  href={pictureUrl(picture)}
+                  download={picture.name}
+                  className={actionClass}
+                  onClick={() => track("picture_download", { model: model.id })}
+                >
                   <Download className="size-3.5" />
                   {t("msg.download")}
                 </a>
               ))
             ) : (
-              <CopyButton text={message.content} className={actionClass} />
+              <CopyButton text={message.content} className={actionClass} onCopied={() => track("reply_copy", { model: model.id })} />
             )}
             {isLatest && (
               <>

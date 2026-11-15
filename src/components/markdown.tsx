@@ -23,7 +23,7 @@ function textOf(node: HastLike | undefined): string {
   return (node.children ?? []).map(textOf).join("");
 }
 
-export function CopyButton({ text, className }: { text: string; className?: string }) {
+export function CopyButton({ text, className, onCopied }: { text: string; className?: string; onCopied?: () => void }) {
   const t = useT();
   const [copied, setCopied] = useState(false);
   return (
@@ -31,6 +31,7 @@ export function CopyButton({ text, className }: { text: string; className?: stri
       type="button"
       onClick={async () => {
         if (await copyText(text)) {
+          onCopied?.();
           setCopied(true);
           setTimeout(() => setCopied(false), 1500);
         }

@@ -34,6 +34,7 @@
   --bubble-user-fg: #ffffff;
   --bubble-bot: #f1f1f4;
   --danger: #dc2626;
+  --chart: #ff5500;  /* chart bars: the accent; one step darker in dark mode (dataviz lightness band) */
   --overlay: rgb(15 15 20 / 0.45);
   color-scheme: light;
 }
@@ -58,6 +59,7 @@
   --bubble-user-fg: #ffffff;
   --bubble-bot: #22222a;
   --danger: #f05252;
+  --chart: #f55200;
   --overlay: rgb(0 0 0 / 0.6);
   color-scheme: dark;
 }
@@ -83,6 +85,7 @@
     --bubble-user-fg: #ffffff;
     --bubble-bot: #22222a;
     --danger: #f05252;
+    --chart: #f55200;
     --overlay: rgb(0 0 0 / 0.6);
     color-scheme: dark;
   }
@@ -108,6 +111,7 @@
   --color-bubble-user-fg: var(--bubble-user-fg);
   --color-bubble-bot: var(--bubble-bot);
   --color-danger: var(--danger);
+  --color-chart: var(--chart);
   --color-overlay: var(--overlay);
   --font-sans: var(--font-be-vietnam), ui-sans-serif, system-ui, sans-serif;
   --font-mono: var(--font-geist-mono), ui-monospace, SFMono-Regular, Menlo, monospace;

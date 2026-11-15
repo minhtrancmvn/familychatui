@@ -159,6 +159,13 @@ async function pictures(page, prefix) {
   step(`${prefix}: the next message edited the picture; both pictures survive a reload`);
 }
 
+/** Analytics events pushed so far on this page (gtag-style `arguments` objects on the dataLayer). */
+function trackedEvents(page) {
+  return page.evaluate(() =>
+    (window.dataLayer ?? []).filter((e) => e && e[0] === "event").map((e) => ({ name: e[1], params: e[2] ?? {} })),
+  );
+}
+
 async function desktop(browser) {
   const ctx = await browser.newContext({ viewport: { width: 1440, height: 900 }, locale: "en-US" });
   const page = await ctx.newPage();
@@ -177,6 +184,20 @@ async function desktop(browser) {
   await enterProfile(page, "d");
   await shot(page, "d04-home");
   await chat(page, "d", "Reply with just the word: pong");
+  // Analytics carry labels and numbers only: never the prompt, the reply or the profile name.
+  const events = await trackedEvents(page);
+  const sent = events.find((e) => e.name === "message_send");
+  await page.waitForFunction(() => (window.dataLayer ?? []).some((e) => e && e[0] === "event" && e[1] === "reply_done"));
+  const done = (await trackedEvents(page)).find((e) => e.name === "reply_done");
+  if (!events.some((e) => e.name === "app_open") || !sent || sent.params.model !== "9r-combo" || sent.params.new_chat !== true) {
+    throw new Error(`analytics: ${JSON.stringify(events)}`);
+  }
+  if (done.params.status !== "done" || !(done.params.duration_ms > 0) || done.params.kind !== "send") {
+    throw new Error(`reply_done: ${JSON.stringify(done)}`);
+  }
+  const everything = JSON.stringify(await trackedEvents(page));
+  if (/pong/i.test(everything) || everything.includes(NAME)) throw new Error(`analytics leaked text: ${everything}`);
+  step(`d: analytics events [${events.map((e) => e.name).join(", ")}], reply took ${done.params.duration_ms} ms; no text or names`);
   // A model names the chat after its first reply; the header switches from the prompt to that title.
   const header = page.getByRole("heading", { level: 1 }).first();
   await page.waitForFunction(
@@ -207,6 +228,19 @@ async function desktop(browser) {
   await page.getByRole("radio", { name: "English" }).first().click();
   await page.getByRole("heading", { name: "Settings" }).waitFor();
   step("d: language switch works and switches back");
+
+  // The admin's usage numbers: this run's messages show up, with the chart and the model rows.
+  const usage = page.locator("section", { has: page.getByRole("heading", { name: "Family usage" }) });
+  await usage.getByRole("img", { name: /^Messages per day/ }).waitFor();
+  const sentTile = usage.getByText("Messages sent").locator("..");
+  const count = Number((await sentTile.locator("div").nth(1).innerText()).replace(/\D/g, ""));
+  if (!(count >= 1)) throw new Error(`usage shows ${count} messages`);
+  await usage.getByText("Auto", { exact: true }).waitFor();
+  await usage.getByRole("radio", { name: "7 days" }).click();
+  await usage.getByRole("img", { name: /^Messages per day/ }).focus();
+  await page.keyboard.press("ArrowLeft");
+  await shot(page, "d10-usage");
+  step(`d: Family usage: messages sent ${count}, daily chart, model rows, 7-day switch`);
 
   if (DOCS) {
     // Drag a Word file onto the page: overlay shows, the server reads it, the model answers from it.
