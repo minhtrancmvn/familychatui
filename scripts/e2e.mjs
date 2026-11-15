@@ -5,7 +5,8 @@
 // Usage: npm run e2e  (needs a running server; it creates profiles and chats, so point it at a
 // throwaway DATA_DIR). Env: BASE_URL (http://localhost:3000), E2E_PASSWORD (family),
 // E2E_EXPECT_REPLY=0 to accept an error reply, E2E_DOCS=<folder with notes.docx and sheets.xlsx> to
-// also test drag-and-drop and document attachments (needs LibreOffice on the server).
+// also test drag-and-drop and document attachments (needs LibreOffice on the server), E2E_IMAGE=1 to
+// also make and edit two real pictures with GPT Image on the phone (uses the image quota).
 import { mkdirSync, readFileSync } from "node:fs";
 import path from "node:path";
 
@@ -16,6 +17,7 @@ const PASSWORD = process.env.E2E_PASSWORD ?? "family";
 const EXPECT_REPLY = process.env.E2E_EXPECT_REPLY !== "0";
 /** Folder with notes.docx and sheets.xlsx for the attachment steps (skipped when unset). */
 const DOCS = process.env.E2E_DOCS;
+const IMAGE = process.env.E2E_IMAGE === "1";
 const OUT = process.argv[2] ?? "shots";
 const TAG = Date.now().toString(36).slice(-4);
 const NAME = `E2E ${TAG}`;
@@ -108,6 +110,53 @@ async function chat(page, prefix, prompt) {
   if (EXPECT_REPLY && (failed || !reply)) throw new Error(`reply failed: ${reply.slice(0, 300)}`);
   step(`${prefix}: reply ${failed ? "FAILED (allowed)" : "arrived"}: ${JSON.stringify(reply.slice(0, 80))}`);
   return reply;
+}
+
+/** Waits until `count` generated pictures are on the page and have loaded. */
+async function picturesLoaded(page, count) {
+  await page.waitForFunction(
+    (n) => {
+      const imgs = [...document.querySelectorAll('img[alt^="Picture made by"]')];
+      return imgs.length === n && imgs.every((img) => img.complete && img.naturalWidth > 0);
+    },
+    count,
+    { timeout: 180_000 },
+  );
+}
+
+/** GPT Image: a picture arrives and is served privately, the next message edits it, both survive a reload. */
+async function pictures(page, prefix) {
+  await page.goto(`${BASE}/`);
+  await page.getByRole("button", { name: /^Auto/ }).filter({ visible: true }).first().click();
+  await page.getByRole("menuitemradio", { name: /GPT Image/ }).click();
+  const box = page.getByRole("textbox", { name: "Message" }).filter({ visible: true }).first();
+  if ((await box.getAttribute("placeholder")) !== "Describe the picture you want") throw new Error("no picture prompt hint");
+  await box.fill("A small orange house on a white background, flat illustration");
+  await box.press("Enter");
+  await page.waitForURL("**/chat/**");
+  await page.getByText("Drawing the picture…").waitFor();
+  await shot(page, `${prefix}07-drawing`);
+  await picturesLoaded(page, 1);
+  await shot(page, `${prefix}08-picture`);
+
+  const src = await page.locator('img[alt^="Picture made by"]').first().getAttribute("src");
+  const res = await page.request.get(`${BASE}${src}`);
+  const headers = res.headers();
+  if (res.status() !== 200 || headers["content-type"] !== "image/png" || !/sandbox/.test(headers["content-security-policy"] ?? "")) {
+    throw new Error(`picture served as ${res.status()} ${headers["content-type"]} csp=${headers["content-security-policy"]}`);
+  }
+  if ((await page.request.get(`${BASE}/api/attachments/not-a-real-picture`)).status() !== 404) throw new Error("unknown picture not 404");
+  const download = await page.getByRole("link", { name: "Download" }).first().getAttribute("download");
+  if (!/^image-.+\.png$/.test(download ?? "")) throw new Error(`download name ${download}`);
+  step(`${prefix}: GPT Image drew a picture (${(await res.body()).length} bytes, download "${download}")`);
+
+  await box.fill("Make the house blue");
+  await box.press("Enter");
+  await picturesLoaded(page, 2);
+  await shot(page, `${prefix}09-edited`);
+  await page.reload();
+  await picturesLoaded(page, 2);
+  step(`${prefix}: the next message edited the picture; both pictures survive a reload`);
 }
 
 async function desktop(browser) {
@@ -221,6 +270,7 @@ async function phone(browser) {
   await enterProfile(page, "m");
   await shot(page, "m04-home");
   await chat(page, "m", "What is 2 + 3? Answer with one number.");
+  if (IMAGE) await pictures(page, "m");
   // Settings is the densest screen (the admin sees every section); check it at phone width too.
   await page.goto(`${BASE}/settings`);
   await page.getByRole("heading", { name: "Settings" }).waitFor();

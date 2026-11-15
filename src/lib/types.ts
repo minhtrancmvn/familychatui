@@ -2,7 +2,7 @@ export type Theme = "system" | "light" | "dark";
 
 export type Lang = "en" | "vi";
 
-export type ModelTag = "Auto" | "Fast" | "Reasoning" | "Vision" | "Long context";
+export type ModelTag = "Auto" | "Fast" | "Reasoning" | "Vision" | "Long context" | "Image";
 
 export interface ModelInfo {
   /** The model id exactly as 9router's /v1/models returns it. */
@@ -18,6 +18,8 @@ export interface ModelInfo {
   search: boolean;
   /** 9router reports `capabilities.vision`: the model can look at attached images. */
   vision: boolean;
+  /** Makes pictures (9router's /v1/images/generations) instead of writing text. Attached photos are edited. */
+  image?: boolean;
   /** Short text drawn on the avatar tile when there is no logo. */
   initials: string;
   color: string;
@@ -122,7 +124,8 @@ export type ReplyEvent =
   | { type: "searching" }
   | { type: "delta"; text: string }
   | { type: "sources"; sources: Source[] }
-  | { type: "done"; status: Exclude<MessageStatus, "streaming">; error?: string }
+  /** `attachments`: the pictures an image model made, once they are saved. */
+  | { type: "done"; status: Exclude<MessageStatus, "streaming">; error?: string; attachments?: Attachment[] }
   /** After the first reply: the chat's new automatic title. */
   | { type: "title"; title: string }
   /** Nothing more is coming on this stream. */

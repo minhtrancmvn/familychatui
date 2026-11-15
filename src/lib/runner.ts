@@ -93,6 +93,8 @@ async function follow(chatId: string, replyId: string, open: (signal: AbortSigna
           status: event.status,
           error: event.error,
           sources: current?.sources?.length ? current.sources : undefined,
+          // Pictures an image model made (saved on the server; the browser loads them by id).
+          ...(event.attachments ? { attachments: event.attachments } : {}),
         });
         finished = true;
         break;
@@ -176,7 +178,14 @@ export function regenerate(chatId: string, messageId: string, modelId?: string) 
   const message = findMessage(chatId, messageId);
   if (!message) return;
   const useModel = modelId ?? (hasModel(message.modelId) ? message.modelId : state.settings.defaultModelId);
-  state.patchMessage(chatId, messageId, { content: "", status: "streaming", modelId: useModel, sources: undefined, error: undefined });
+  state.patchMessage(chatId, messageId, {
+    content: "",
+    status: "streaming",
+    modelId: useModel,
+    sources: undefined,
+    error: undefined,
+    attachments: undefined,
+  });
   state.setChatModel(chatId, useModel);
   void follow(chatId, messageId, post(`/api/chats/${chatId}/messages/${messageId}/regenerate`, { modelId: useModel }));
 }

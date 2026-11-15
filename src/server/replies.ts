@@ -1,9 +1,10 @@
 import "server-only";
 
-import type { MessageStatus, ReplyEvent, Source } from "@/lib/types";
+import { getModel } from "@/lib/models";
+import type { Attachment, MessageStatus, ReplyEvent, Source } from "@/lib/types";
 
-import { streamReply } from "./ninerouter";
-import { finishReply, getMessage, type HistoryMessage, saveReplyProgress } from "./repo";
+import { type GeneratedImage, generateImage, streamReply } from "./ninerouter";
+import { finishReply, getMessage, type HistoryMessage, imageRefsFor, messageAttachments, saveReplyProgress } from "./repo";
 import { titleChat } from "./titles";
 
 /**
@@ -56,6 +57,17 @@ function friendlyError(err: unknown): string {
   return message.slice(0, 300);
 }
 
+// gpt-image models take prompts up to 32,000 characters.
+const MAX_IMAGE_PROMPT = 32_000;
+
+/** What to draw: the latest message, plus the text of any files attached to it. */
+function imagePrompt(history: HistoryMessage[]): string {
+  const question = history.findLast((m) => m.role === "user");
+  if (!question) return "";
+  const files = question.attachments.filter((a) => a.kind === "file").map((a) => `${a.name}:\n${a.data}`);
+  return [question.content.trim(), ...files].filter(Boolean).join("\n\n").slice(0, MAX_IMAGE_PROMPT);
+}
+
 export function startReply(chatId: string, replyId: string, modelId: string, history: HistoryMessage[]): void {
   const reply: LiveReply = {
     chatId,
@@ -74,24 +86,31 @@ export function startReply(chatId: string, replyId: string, modelId: string, his
     let status: Exclude<MessageStatus, "streaming"> = "done";
     let error: string | undefined;
     let savedAt = Date.now();
+    const images: GeneratedImage[] = [];
     try {
-      for await (const event of streamReply(modelId, history, signal)) {
-        if (event.type === "delta") {
-          reply.content += event.text;
-          reply.searching = false;
-        } else if (event.type === "sources") {
-          reply.sources = event.sources;
-        } else if (event.type === "searching") {
-          if (reply.searching) continue;
-          reply.searching = true;
-        }
-        emit(event);
-        if (Date.now() - savedAt > SAVE_EVERY_MS) {
-          saveReplyProgress(replyId, reply.content);
-          savedAt = Date.now();
+      if (getModel(modelId).image) {
+        const prompt = imagePrompt(history);
+        if (!prompt) throw new Error("Describe the picture you want.");
+        images.push(await generateImage(modelId, prompt, imageRefsFor(chatId, replyId), signal));
+      } else {
+        for await (const event of streamReply(modelId, history, signal)) {
+          if (event.type === "delta") {
+            reply.content += event.text;
+            reply.searching = false;
+          } else if (event.type === "sources") {
+            reply.sources = event.sources;
+          } else if (event.type === "searching") {
+            if (reply.searching) continue;
+            reply.searching = true;
+          }
+          emit(event);
+          if (Date.now() - savedAt > SAVE_EVERY_MS) {
+            saveReplyProgress(replyId, reply.content);
+            savedAt = Date.now();
+          }
         }
       }
-      if (!reply.content.trim()) {
+      if (!reply.content.trim() && images.length === 0) {
         status = "error";
         error = "The model sent an empty reply.";
       }
@@ -107,11 +126,12 @@ export function startReply(chatId: string, replyId: string, modelId: string, his
         console.error(`[reply ${replyId}] ${modelId}:`, err);
       }
     }
+    let attachments: Attachment[] = [];
     try {
-      finishReply(replyId, { content: reply.content, status, sources: reply.sources, error });
+      attachments = finishReply(replyId, { content: reply.content, status, sources: reply.sources, error, images });
     } finally {
       live.delete(replyId);
-      emit({ type: "done", status, error });
+      emit({ type: "done", status, error, ...(attachments.length ? { attachments } : {}) });
     }
     // After the first good reply, name the chat. The reply already shows as done meanwhile.
     if (status === "done") {
@@ -167,7 +187,8 @@ export function followReply(replyId: string): Response {
           sources: saved?.sources ? (JSON.parse(saved.sources) as Source[]) : [],
           searching: false,
         });
-        send({ type: "done", status, error: saved?.error ?? undefined });
+        const attachments = saved ? messageAttachments(replyId) : [];
+        send({ type: "done", status, error: saved?.error ?? undefined, ...(attachments.length ? { attachments } : {}) });
         close();
         return;
       }

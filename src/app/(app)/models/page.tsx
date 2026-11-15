@@ -12,7 +12,7 @@ import { MODELS } from "@/lib/models";
 import { useActiveProfile, useAppStore, useVisibleModels } from "@/lib/store";
 import type { ModelTag } from "@/lib/types";
 
-const TAGS: ModelTag[] = ["Auto", "Fast", "Reasoning", "Vision", "Long context"];
+const TAGS: ModelTag[] = ["Auto", "Fast", "Reasoning", "Vision", "Long context", "Image"];
 
 export default function ModelsPage() {
   const t = useT();

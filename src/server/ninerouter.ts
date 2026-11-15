@@ -1,6 +1,6 @@
 import "server-only";
 
-import { getModel } from "@/lib/models";
+import { getModel, MODELS } from "@/lib/models";
 import type { ReplyEvent, Source } from "@/lib/types";
 
 import { ninerouterApiKey, ninerouterBaseUrl } from "./env";
@@ -50,6 +50,8 @@ export async function capabilitiesFor(modelId: string): Promise<Capabilities> {
   return { search: model.search, vision: model.vision };
 }
 
+const PICTURE_MODEL = MODELS.find((m) => m.image)?.name;
+
 function systemPrompt(): string {
   const today = new Date().toISOString().slice(0, 10);
   return [
@@ -57,6 +59,10 @@ function systemPrompt(): string {
     `Today's date is ${today}.`,
     "Always reply in the language of the user's latest message, even if earlier messages or these instructions use another language.",
     "Use Markdown when it helps: short paragraphs, lists, tables, fenced code blocks.",
+    // Text models can't draw; without this they "edit" a picture in words ("Done, the house is now blue").
+    ...(PICTURE_MODEL
+      ? [`You can't make or change pictures. If asked to, say so briefly and suggest picking "${PICTURE_MODEL}" in the model menu.`]
+      : []),
   ].join(" ");
 }
 
@@ -262,6 +268,45 @@ async function* viaChatCompletions(
       if (a.type === "url_citation") added = addSource(sources, a.url_citation?.url, a.url_citation?.title) || added;
     if (added) yield { type: "sources", sources: [...sources] };
   }
+}
+
+// ---------- /v1/images/generations (image models) ----------
+
+export interface GeneratedImage {
+  mime: string;
+  /** A data: URL, stored like an uploaded photo. */
+  data: string;
+  /** Decoded size in bytes. */
+  size: number;
+}
+
+/** The picture's real type from its first bytes, so nothing else is ever stored or served as an image. */
+function imageMime(bytes: Buffer): string | null {
+  if (bytes.subarray(0, 8).equals(Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]))) return "image/png";
+  if (bytes[0] === 0xff && bytes[1] === 0xd8 && bytes[2] === 0xff) return "image/jpeg";
+  if (bytes.subarray(0, 4).toString("latin1") === "RIFF" && bytes.subarray(8, 12).toString("latin1") === "WEBP") return "image/webp";
+  return null;
+}
+
+/**
+ * One picture. With `refs` (data: URLs) the model changes those pictures instead of starting from scratch;
+ * 9router then goes through Codex's Responses API, which takes a little longer (~16 s instead of ~10 s).
+ */
+export async function generateImage(modelId: string, prompt: string, refs: string[], signal: AbortSignal): Promise<GeneratedImage> {
+  const res = await fetch(`${ninerouterBaseUrl()}/images/generations`, {
+    method: "POST",
+    headers: headers(),
+    signal,
+    body: JSON.stringify({ model: modelId, prompt, ...(refs.length ? { images: refs } : {}) }),
+  });
+  if (!res.ok) throw await failure(res);
+  const body = (await res.json()) as { data?: Array<{ b64_json?: string }> };
+  const b64 = body.data?.find((d) => d.b64_json)?.b64_json;
+  if (!b64) throw new Error("The model sent no picture.");
+  const bytes = Buffer.from(b64, "base64");
+  const mime = imageMime(bytes);
+  if (!mime) throw new Error("The model sent something that isn't a picture.");
+  return { mime, data: `data:${mime};base64,${b64}`, size: bytes.length };
 }
 
 // Fast, cheap models for chat titles, tried in order (DeepSeek Flash answers in ~1.3 s).
