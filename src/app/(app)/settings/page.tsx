@@ -7,6 +7,7 @@ import { type ReactNode, useMemo, useState } from "react";
 
 import { ModelAvatar, ProfileAvatar } from "@/components/avatars";
 import { ProfileEditor } from "@/components/profile-editor";
+import { UsagePanel } from "@/components/usage";
 import { PageHeader } from "@/components/shell";
 import { Button, ConfirmDialog, LANG_OPTIONS, Segmented, Toggle } from "@/components/ui";
 import { api, ApiError } from "@/lib/api";
@@ -317,6 +318,10 @@ export default function SettingsPage() {
                   );
                 })}
               </ul>
+            </Section>
+
+            <Section title={t("usage.title")} help={t("usage.help", { days: CHAT_RETENTION_DAYS })}>
+              <UsagePanel />
             </Section>
             </>
           )}

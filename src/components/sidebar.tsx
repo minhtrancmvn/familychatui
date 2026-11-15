@@ -17,6 +17,7 @@ import { ConfirmDialog, PRESS } from "@/components/ui";
 import { APP_NAME } from "@/lib/config";
 import { useDismiss, useNow } from "@/lib/hooks";
 import { useT } from "@/lib/i18n";
+import { track } from "@/lib/analytics";
 import { getModel } from "@/lib/models";
 import { useActiveProfile, useAppStore } from "@/lib/store";
 import type { Chat } from "@/lib/types";
@@ -334,6 +335,7 @@ function ChatItem({
               icon={chat.pinned ? <PinOff className="size-4" /> : <Pin className="size-4" />}
               onClick={() => {
                 setMenuAt(null);
+                track("chat_pin", { pinned: !chat.pinned });
                 setPinned(chat.id, !chat.pinned);
               }}
             >

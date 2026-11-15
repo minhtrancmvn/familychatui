@@ -2,6 +2,11 @@
 
 Every merge to `main` deploys automatically and gets an entry here, newest first. Versions follow `package.json`: new features bump the minor number, fixes the patch number.
 
+## 0.6.0 (2026-11-15)
+
+- **Family usage in Settings (admin only).** See how the family uses the app over the last 7, 30 or 90 days: messages per day, replies and failures for each model, pictures made, the most common errors and how many profiles were active. It shows totals only, never who said what.
+- **Behind the scenes:** the app now tells Google Analytics which features get used (sending, retrying, pictures, the home-screen app) and how fast replies arrive. Only labels and numbers are sent, never what anyone writes or anyone's name.
+
 ## 0.5.0 (2026-11-15)
 
 - **Make pictures.** Pick **GPT Image** in the model menu and describe what you want; the picture appears in the chat after about 10 seconds. Tap it to see it full size, press **Download** to save it, or long-press it on a phone to save it to Photos.
