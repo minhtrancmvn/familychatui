@@ -76,8 +76,7 @@ jobs:
           NEXT_PUBLIC_GTM_ID: ${{ vars.GTM_ID }}
         run: DEPLOY_KEY="$HOME/.ssh/deploy_key" deploy/deploy.sh
 
-      # The server already health-checked the release (activate-release.sh). From GitHub's runners abroad,
-      # the site answers 403 (Vietnam + Singapore only), which still proves DNS, TLS and nginx are up.
+      # The server already health-checked the release (activate-release.sh); this proves DNS, TLS and nginx.
       - name: Check the live site
         env:
           DEPLOY_DOMAIN: ${{ vars.DEPLOY_DOMAIN }}
@@ -85,7 +84,7 @@ jobs:
           set -eu
           for i in $(seq 1 10); do
             code=$(curl -s -o /dev/null -w '%{http_code}' -A "Mozilla/5.0 familychatui-ci" "https://$DEPLOY_DOMAIN/api/session" || true)
-            if [ "$code" = 200 ] || [ "$code" = 403 ]; then echo "site answered $code"; exit 0; fi
+            if [ "$code" = 200 ]; then echo "site answered $code"; exit 0; fi
             sleep 3
           done
           echo "Live site check failed (last status: $code)" >&2

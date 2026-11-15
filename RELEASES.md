@@ -2,6 +2,10 @@
 
 Every merge to `main` deploys automatically and gets an entry here, newest first. Versions follow `package.json`: new features bump the minor number, fixes the patch number.
 
+## 0.4.3 (2026-11-15)
+
+- **The app opens from anywhere again.** It was limited to Vietnam and Singapore, but iPhones and Macs with iCloud Private Relay often look like they're somewhere else, so family members could get "403 Forbidden" instead of the app. The family password and PINs still keep everyone else out.
+
 ## 0.4.2 (2026-11-15)
 
 - **Behind the scenes:** the server now keeps only recent versions of the app for going back if an update breaks something: the last 5, or every version from the past week when there are more. Nothing changes in the app itself.
