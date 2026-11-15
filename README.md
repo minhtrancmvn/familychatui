@@ -59,8 +59,6 @@ The `deploy/` folder targets a single Ubuntu server with nginx, certbot and syst
 1. Point a DNS record at the server, copy `deploy/` over, and run `DOMAIN=chat.example.com bash setup-host.sh`. It installs the document converters, creates an unprivileged `familychat` user, the systemd unit, the nginx site and the certificate. Put `NINEROUTER_API_KEY` and `FAMILY_PASSWORD` in `/etc/familychatui/env`.
 2. Build and ship a release with `DEPLOY_HOST=user@host DEPLOY_KEY=~/.ssh/key deploy/deploy.sh`, or let GitHub Actions do it: on every push to `main`, `.github/workflows/ci.yml` builds the standalone bundle and deploys it. It needs the secrets `DEPLOY_HOST`, `DEPLOY_SSH_KEY` and `DEPLOY_KNOWN_HOSTS` and the variable `DEPLOY_DOMAIN` (plus `GTM_ID` if you want Tag Manager).
 
-`setup-host.sh` also limits the site to visitors from Vietnam and Singapore: nginx answers 403 to everyone else, using DB-IP's country list (refreshed monthly by `familychatui-geo.timer`; edit `COUNTRIES` in `deploy/update-geo-allowlist.py` to change it).
-
 The server never runs npm. Releases are uploaded through `deploy-gate`, the only command the CI key may run, and `activate-release.sh` rolls back if the new release doesn't answer its health check. After a good release, `prune-releases.sh` keeps the 5 newest releases plus any from the last 7 days (never the live one).
 
 ## Security notes
@@ -72,7 +70,7 @@ The server never runs npm. Releases are uploaded through `deploy-gate`, the only
 
 ## Credits
 
-IP geolocation by [DB-IP](https://db-ip.com) (CC BY 4.0). Provider logos are from [SVG Logos](https://github.com/gilbarbara/logos) by Gil Barbara (CC0). The logos are trademarks of their owners. The font is Be Vietnam Pro (SIL Open Font License).
+Provider logos are from [SVG Logos](https://github.com/gilbarbara/logos) by Gil Barbara (CC0). The logos are trademarks of their owners. The font is Be Vietnam Pro (SIL Open Font License).
 
 ## License
 
