@@ -54,6 +54,7 @@ Private, Poe-style chat app for the owner's family. Its only model provider is a
 - Every 9router call sends `x-9router-token-saver: off`: 9router's global caveman/RTK token savers (meant for coding tools) would otherwise make family replies terse fragments.
 - Use the theme tokens from `src/app/globals.css` (`bg-surface`, `bg-surface-2`, `text-muted`, `border-border`, `bg-accent`, ...). Dark mode comes from `data-theme` on `<html>` (`system`/`light`/`dark`).
 - Zustand selectors must return stable references. Select raw state and derive with `useMemo`; a selector that returns a new array or object every time causes an infinite render loop.
+- `md:` is redefined in `src/app/globals.css` as width ≥ 48rem **and** height ≥ 32rem, so a phone on its side keeps the phone layout (drawer, 44px targets, no hover-only actions); `short:` is the height < 32rem side. Scripts use `DESKTOP_MEDIA` (`src/lib/config.ts`), the same rule; change both together. Don't use `max-md:` (it is still width-only). On the desktop layout the sidebar can be put away (`settings.sidebarHidden`, a device preference); pages read it through `useShell()`.
 - Design mobile first, because the family uses phones. The font is Be Vietnam Pro (Vietnamese subset), so diacritics render in one font. Check IME (`isComposing`) before treating Enter as send.
 - Model avatars are real provider logos from `public/icons/models` (SVG Logos, CC0, fetched with the taste skill's `icons.mjs`). Auto gets a sparkle tile; a model without a logo (GLM) gets an initials tile.
 - The app icon is a white house-shaped speech bubble with three orange dots on an orange `#ff5500` tile (home + chat), chosen by the owner. No letters: a lone "f" on a tile read as Facebook. `scripts/app-icon/draw.mjs` holds the shape and `build.sh` regenerates `src/app/{icon.svg,apple-icon.png,favicon.ico}` and `public/icons/app/*.png` (used by `src/app/manifest.ts`). `src/components/logo.tsx` inlines the same shape; change both together.
@@ -81,7 +82,7 @@ Private, Poe-style chat app for the owner's family. Its only model provider is a
 <!-- gitnexus:start -->
 # GitNexus — Code Intelligence
 
-This project is indexed by GitNexus as **familychatui** (882 symbols, 2469 relationships, 73 execution flows). Use the GitNexus MCP tools to understand code, assess impact, and navigate safely.
+This project is indexed by GitNexus as **familychatui** (960 symbols, 2745 relationships, 79 execution flows). Use the GitNexus MCP tools to understand code, assess impact, and navigate safely.
 
 > Index stale? Run `node .gitnexus/run.cjs analyze` from the project root — it auto-selects an available runner. No `.gitnexus/run.cjs` yet? `npx gitnexus analyze` (npm 11 crash → `npm i -g gitnexus`; #1939).
 

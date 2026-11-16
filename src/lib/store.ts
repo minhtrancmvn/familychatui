@@ -60,6 +60,7 @@ interface AppState {
   setModelHidden: (modelId: string, hidden: boolean) => void;
   setTheme: (theme: Theme) => void;
   setEnterToSend: (value: boolean) => void;
+  setSidebarHidden: (hidden: boolean) => void;
 }
 
 interface SessionResponse {
@@ -77,7 +78,7 @@ function detectLanguage(): Lang {
 }
 
 const DEFAULT_FAMILY: FamilySettings = { defaultModelId: DEFAULT_MODEL_ID, hiddenModelIds: DEFAULT_HIDDEN_MODEL_IDS };
-const DEFAULT_DEVICE: DeviceSettings = { theme: "system", enterToSend: true };
+const DEFAULT_DEVICE: DeviceSettings = { theme: "system", enterToSend: true, sidebarHidden: false };
 
 function mapChat(chats: Chat[], id: string, fn: (c: Chat) => Chat): Chat[] {
   return chats.map((c) => (c.id === id ? fn(c) : c));
@@ -314,6 +315,7 @@ export const useAppStore = create<AppState>()(
       },
       setTheme: (theme) => set((s) => ({ settings: { ...s.settings, theme } })),
       setEnterToSend: (value) => set((s) => ({ settings: { ...s.settings, enterToSend: value } })),
+      setSidebarHidden: (hidden) => set((s) => ({ settings: { ...s.settings, sidebarHidden: hidden } })),
     }),
     {
       name: STORAGE_KEY,
@@ -321,7 +323,7 @@ export const useAppStore = create<AppState>()(
       // Only this device's preferences; the layout's theme script reads state.settings.theme before paint.
       partialize: (s) => ({
         deviceLanguage: s.deviceLanguage,
-        settings: { theme: s.settings.theme, enterToSend: s.settings.enterToSend },
+        settings: { theme: s.settings.theme, enterToSend: s.settings.enterToSend, sidebarHidden: s.settings.sidebarHidden },
       }),
       merge: (persisted, current) => {
         const saved = (persisted ?? {}) as { deviceLanguage?: Lang; settings?: Partial<DeviceSettings> };
@@ -332,6 +334,7 @@ export const useAppStore = create<AppState>()(
             ...current.settings,
             theme: saved.settings?.theme ?? current.settings.theme,
             enterToSend: saved.settings?.enterToSend ?? current.settings.enterToSend,
+            sidebarHidden: saved.settings?.sidebarHidden ?? current.settings.sidebarHidden,
           },
         };
       },

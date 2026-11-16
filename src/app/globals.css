@@ -12,6 +12,13 @@
   }
 }
 
+/* `md:` is the desktop layout: wide AND tall enough. A phone on its side (about 850×390) keeps the
+   phone layout: the sidebar as a drawer, 44px tap targets, and actions that don't wait for a hover.
+   DESKTOP_MEDIA in src/lib/config.ts is the same rule for scripts; change both together. */
+@custom-variant md (@media (width >= 48rem) and (height >= 32rem));
+/* `short:` is the other side of that height line: a phone on its side, where vertical room is scarce. */
+@custom-variant short (@media (height < 32rem));
+
 :root {
   --bg: #ffffff;
   --sidebar: #f6f6f8;

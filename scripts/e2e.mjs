@@ -1,5 +1,5 @@
-// Real end-to-end flow in a browser, desktop and phone: login, profiles with PIN, a chat with a real
-// 9router reply, reload persistence, rename, settings, manage-with-PIN, logout. Takes screenshots and
+// Real end-to-end flow in a browser, desktop, phone and a phone on its side: login, profiles with PIN, a chat with a real
+// 9router reply, reload persistence, rename, sidebar hide/show, settings, manage-with-PIN, logout. Takes screenshots and
 // reports console/page errors and horizontal overflow.
 //
 // Usage: npm run e2e  (needs a running server; it creates profiles and chats, so point it at a
@@ -221,6 +221,25 @@ async function desktop(browser) {
   await page.getByRole("heading", { name: `Renamed ${TAG}` }).waitFor();
   step("d: rename persists");
 
+  // Put the sidebar away: the chat gets the whole width; the header offers it back, and a New chat link.
+  await page.getByRole("button", { name: "Hide sidebar" }).click();
+  await page.locator("#sidebar-show").waitFor();
+  await page.locator("header").getByRole("link", { name: "New chat" }).waitFor();
+  await page.waitForTimeout(300); // the slide
+  const wide = await page.locator("main").evaluate((el) => el.getBoundingClientRect().width);
+  if (wide < 1400) throw new Error(`the chat is ${wide}px wide with the sidebar put away`);
+  await shot(page, "d05b-sidebar-hidden");
+  await page.reload();
+  // The composer takes focus once the chat loads (desktop); wait for that before using the keyboard.
+  await page.waitForFunction(() => document.activeElement?.tagName === "TEXTAREA");
+  await page.locator("#sidebar-show").focus();
+  await page.keyboard.press("Enter");
+  await page.waitForFunction(() => document.activeElement?.id === "sidebar-hide");
+  if (await page.locator("header").getByRole("link", { name: "New chat" }).isVisible()) {
+    throw new Error("the header's New chat link stays next to the sidebar's");
+  }
+  step(`d: sidebar put away (chat ${Math.round(wide)}px wide), still away after a reload, back with the keyboard`);
+
   await page.goto(`${BASE}/settings`);
   await page.getByRole("radio", { name: "Tiếng Việt" }).first().click();
   await page.getByRole("heading", { name: "Cài đặt" }).waitFor();
@@ -313,11 +332,51 @@ async function phone(browser) {
   await ctx.close();
 }
 
+/** A phone on its side is still a phone: the drawer, 44px tap targets, and row actions without a hover. */
+async function landscape(browser) {
+  const ctx = await browser.newContext({ ...devices["iPhone 15 Pro Max landscape"], locale: "en-US" });
+  const page = await ctx.newPage();
+  watch(page, "landscape");
+  await login(page, "l");
+  await enterProfile(page, "l");
+  const menu = page.locator("#drawer-open");
+  await menu.waitFor();
+  if (await page.locator("#sidebar-hide").isVisible()) throw new Error("desktop sidebar on a phone on its side");
+  const tap = await menu.boundingBox();
+  if (tap.height < 44) throw new Error(`menu button is ${tap.height}px tall`);
+  await shot(page, "l04-home");
+
+  await menu.click();
+  const drawer = page.getByRole("complementary", { name: "Menu" });
+  const options = drawer.getByRole("button", { name: `Options for Renamed ${TAG}` });
+  await options.waitFor();
+  const shown = await options.evaluate((el) => getComputedStyle(el).opacity);
+  if (shown !== "1") throw new Error(`chat options wait for a hover (opacity ${shown})`);
+  // Short screen: the drawer's top scrolls away with the chats instead of squeezing the list.
+  const list = drawer.getByRole("navigation", { name: "Chats" });
+  const scroll = await list.evaluate((el) => `${getComputedStyle(el).overflowY}/${getComputedStyle(el.parentElement).overflowY}`);
+  if (scroll !== "visible/auto") throw new Error(`drawer scrolling on a short screen: ${scroll}`);
+  await list.evaluate((el) => el.parentElement.scrollTo(0, el.parentElement.scrollHeight));
+  await shot(page, "l05-drawer");
+  await drawer.getByRole("link", { name: `Renamed ${TAG}` }).click();
+  await page.getByRole("heading", { name: `Renamed ${TAG}` }).waitFor();
+  await shot(page, "l06-chat");
+  // Like any phone, the message box doesn't take focus by itself (the keyboard would cover the chat).
+  if (await page.evaluate(() => document.activeElement?.tagName === "TEXTAREA")) throw new Error("composer took focus");
+
+  await menu.click();
+  await drawer.getByRole("button", { name: "Close menu" }).click();
+  await page.waitForFunction(() => document.activeElement?.id === "drawer-open");
+  step("l: phone on its side: drawer that scrolls as a whole, 44px buttons, row actions shown, no keyboard pop-up, Close menu returns focus");
+  await ctx.close();
+}
+
 const browser = await chromium.launch();
 try {
   console.log(`E2E against ${BASE} (profile "${NAME}")`);
   await desktop(browser);
   await phone(browser);
+  await landscape(browser);
 } finally {
   await browser.close();
 }

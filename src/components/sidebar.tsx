@@ -4,7 +4,7 @@ import { closestCenter, DndContext, KeyboardSensor, PointerSensor, useSensor, us
 import { arrayMove, SortableContext, sortableKeyboardCoordinates, useSortable, verticalListSortingStrategy } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
 import clsx from "clsx";
-import { Compass, GripVertical, MoreHorizontal, Pencil, Pin, PinOff, Plus, Search, Settings, Trash2 } from "lucide-react";
+import { Compass, GripVertical, MoreHorizontal, PanelLeftClose, Pencil, Pin, PinOff, Plus, Search, Settings, Trash2 } from "lucide-react";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { type CSSProperties, type ReactNode, useCallback, useMemo, useRef, useState } from "react";
@@ -13,7 +13,7 @@ import { createPortal } from "react-dom";
 import { ModelAvatar, ProfileAvatar } from "@/components/avatars";
 import { Logo } from "@/components/logo";
 import { MenuItem } from "@/components/popover";
-import { ConfirmDialog, PRESS } from "@/components/ui";
+import { ConfirmDialog, IconButton, PRESS } from "@/components/ui";
 import { APP_NAME } from "@/lib/config";
 import { useDismiss, useNow } from "@/lib/hooks";
 import { useT } from "@/lib/i18n";
@@ -23,7 +23,14 @@ import { useActiveProfile, useAppStore } from "@/lib/store";
 import type { Chat } from "@/lib/types";
 import { groupByRecency } from "@/lib/util";
 
-export function Sidebar({ onNavigate }: { onNavigate?: () => void }) {
+/** `hide`: the button that puts the sidebar away (desktop) or closes the drawer (phone). */
+export function Sidebar({
+  onNavigate,
+  hide,
+}: {
+  onNavigate?: () => void;
+  hide?: { id?: string; label: string; onClick: () => void };
+}) {
   const t = useT();
   const profile = useActiveProfile();
   const chats = useAppStore((s) => s.chats);
@@ -51,68 +58,76 @@ export function Sidebar({ onNavigate }: { onNavigate?: () => void }) {
 
   return (
     <div className="flex h-full min-h-0 flex-col">
-      <div className="flex items-center gap-2.5 px-4 pb-3 pt-[max(1rem,env(safe-area-inset-top))]">
-        <Logo size={30} />
-        <span className="font-semibold tracking-tight">{APP_NAME}</span>
-      </div>
-
-      <div className="space-y-1 px-3">
-        <Link
-          href="/"
-          onClick={onNavigate}
-          className={clsx("flex h-11 items-center gap-2 rounded-xl bg-accent-strong px-3 text-sm font-medium text-accent-fg hover:bg-accent-strong-hover md:h-10", PRESS)}
-        >
-          <Plus className="size-4" />
-          {t("nav.newChat")}
-        </Link>
-        <Link
-          href="/models"
-          onClick={onNavigate}
-          className={clsx(
-            "flex h-11 items-center gap-2 rounded-xl px-3 text-sm font-medium transition-colors md:h-10",
-            pathname === "/models" ? "bg-surface-3" : "hover:bg-surface-2",
+      {/* On a short screen (a phone on its side) the top scrolls away with the chats, so the list gets the room. */}
+      <div className="flex min-h-0 flex-1 flex-col short:overflow-y-auto">
+        <div className="flex items-center gap-2.5 pb-3 pl-4 pr-2 pt-[max(1rem,env(safe-area-inset-top))]">
+          <Logo size={30} />
+          <span className="min-w-0 flex-1 truncate font-semibold tracking-tight">{APP_NAME}</span>
+          {hide && (
+            <IconButton id={hide.id} label={hide.label} onClick={hide.onClick} className="-my-1.5">
+              <PanelLeftClose className="size-5" />
+            </IconButton>
           )}
-        >
-          <Compass className="size-4" />
-          {t("nav.explore")}
-        </Link>
-      </div>
+        </div>
 
-      <div className="px-3 pt-3">
-        <label className="flex h-11 items-center gap-2 rounded-lg border border-border bg-surface px-2.5 focus-within:border-accent md:h-9">
-          <Search className="size-4 text-muted" />
-          <input
-            value={query}
-            onChange={(e) => setQuery(e.target.value)}
-            placeholder={t("nav.search")}
-            aria-label={t("nav.search")}
-            className="min-w-0 flex-1 bg-transparent text-sm outline-none placeholder:text-muted"
-          />
-        </label>
-      </div>
+        <div className="space-y-1 px-3">
+          <Link
+            href="/"
+            onClick={onNavigate}
+            className={clsx("flex h-11 items-center gap-2 rounded-xl bg-accent-strong px-3 text-sm font-medium text-accent-fg hover:bg-accent-strong-hover md:h-10", PRESS)}
+          >
+            <Plus className="size-4" />
+            {t("nav.newChat")}
+          </Link>
+          <Link
+            href="/models"
+            onClick={onNavigate}
+            className={clsx(
+              "flex h-11 items-center gap-2 rounded-xl px-3 text-sm font-medium transition-colors md:h-10",
+              pathname === "/models" ? "bg-surface-3" : "hover:bg-surface-2",
+            )}
+          >
+            <Compass className="size-4" />
+            {t("nav.explore")}
+          </Link>
+        </div>
 
-      <nav aria-label={t("nav.chats")} className="mt-1 min-h-0 flex-1 overflow-y-auto px-2 pb-2">
-        {pinned.length > 0 && (
-          <section className="mt-3">
-            <h3 className="px-2 pb-1 text-xs font-medium text-muted">{t("nav.pinned")}</h3>
-            {/* Reordering a filtered subset would be confusing, so dragging is off while searching. */}
-            <PinnedList chats={pinned} draggable={!query.trim()} pathname={pathname} onNavigate={onNavigate} />
-          </section>
-        )}
-        {groups.map((group) => (
-          <section key={group.key} className="mt-3">
-            <h3 className="px-2 pb-1 text-xs font-medium text-muted">{t(group.key)}</h3>
-            <ul>
-              {group.items.map((chat) => (
-                <ChatItem key={chat.id} chat={chat} active={pathname === `/chat/${chat.id}`} onNavigate={onNavigate} />
-              ))}
-            </ul>
-          </section>
-        ))}
-        {groups.length === 0 && pinned.length === 0 && (
-          <p className="px-3 py-6 text-center text-sm text-muted">{query ? t("nav.noMatch") : t("nav.empty")}</p>
-        )}
-      </nav>
+        <div className="px-3 pt-3">
+          <label className="flex h-11 items-center gap-2 rounded-lg border border-border bg-surface px-2.5 focus-within:border-accent md:h-9">
+            <Search className="size-4 text-muted" />
+            <input
+              value={query}
+              onChange={(e) => setQuery(e.target.value)}
+              placeholder={t("nav.search")}
+              aria-label={t("nav.search")}
+              className="min-w-0 flex-1 bg-transparent text-sm outline-none placeholder:text-muted"
+            />
+          </label>
+        </div>
+
+        <nav aria-label={t("nav.chats")} className="mt-1 min-h-0 flex-1 overflow-y-auto px-2 pb-2 short:flex-none short:overflow-visible">
+          {pinned.length > 0 && (
+            <section className="mt-3">
+              <h3 className="px-2 pb-1 text-xs font-medium text-muted">{t("nav.pinned")}</h3>
+              {/* Reordering a filtered subset would be confusing, so dragging is off while searching. */}
+              <PinnedList chats={pinned} draggable={!query.trim()} pathname={pathname} onNavigate={onNavigate} />
+            </section>
+          )}
+          {groups.map((group) => (
+            <section key={group.key} className="mt-3">
+              <h3 className="px-2 pb-1 text-xs font-medium text-muted">{t(group.key)}</h3>
+              <ul>
+                {group.items.map((chat) => (
+                  <ChatItem key={chat.id} chat={chat} active={pathname === `/chat/${chat.id}`} onNavigate={onNavigate} />
+                ))}
+              </ul>
+            </section>
+          ))}
+          {groups.length === 0 && pinned.length === 0 && (
+            <p className="px-3 py-6 text-center text-sm text-muted">{query ? t("nav.noMatch") : t("nav.empty")}</p>
+          )}
+        </nav>
+      </div>
 
       <div className="flex items-center gap-1 border-t border-border p-2 pb-[max(0.5rem,env(safe-area-inset-bottom))]">
         <button

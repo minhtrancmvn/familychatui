@@ -9,6 +9,12 @@ export const APP_NAME = "familychatui";
  */
 export const GTM_ID = process.env.NEXT_PUBLIC_GTM_ID ?? "";
 
+/**
+ * The desktop layout, the same rule as the `md:` variant in globals.css (change both together): wide
+ * AND tall enough, so a phone on its side still gets the phone layout.
+ */
+export const DESKTOP_MEDIA = "(min-width: 48rem) and (min-height: 32rem)";
+
 /** Chats with no new message for this many days are deleted, unless kept forever. */
 export const CHAT_RETENTION_DAYS = 90;
 

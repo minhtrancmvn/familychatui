@@ -113,6 +113,8 @@ export interface FamilySettings {
 export interface DeviceSettings {
   theme: Theme;
   enterToSend: boolean;
+  /** Desktop only: the sidebar is put away to give the chat the whole width. */
+  sidebarHidden: boolean;
 }
 
 export type Settings = FamilySettings & DeviceSettings;
