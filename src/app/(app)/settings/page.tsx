@@ -11,7 +11,7 @@ import { UsagePanel } from "@/components/usage";
 import { PageHeader } from "@/components/shell";
 import { Button, ConfirmDialog, LANG_OPTIONS, Segmented, Toggle } from "@/components/ui";
 import { api, ApiError } from "@/lib/api";
-import { CHAT_RETENTION_DAYS } from "@/lib/config";
+import { APP_NAME, APP_VERSION, CHAT_RETENTION_DAYS } from "@/lib/config";
 import { useNow } from "@/lib/hooks";
 import { useLang, useT } from "@/lib/i18n";
 import { MODELS } from "@/lib/models";
@@ -380,6 +380,11 @@ export default function SettingsPage() {
             </Button>
           </Section>
 
+          {APP_VERSION && (
+            <p className="text-center text-xs text-muted">
+              {APP_NAME} · {t("settings.version", { version: APP_VERSION })}
+            </p>
+          )}
         </div>
       </div>
 

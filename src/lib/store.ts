@@ -78,7 +78,12 @@ function detectLanguage(): Lang {
 }
 
 const DEFAULT_FAMILY: FamilySettings = { defaultModelId: DEFAULT_MODEL_ID, hiddenModelIds: DEFAULT_HIDDEN_MODEL_IDS };
-const DEFAULT_DEVICE: DeviceSettings = { theme: "system", enterToSend: true, sidebarHidden: false };
+/** Phones and tablets: Return adds a new line there by default, and the Send button sends. */
+function touchFirst(): boolean {
+  return typeof window !== "undefined" && window.matchMedia("(pointer: coarse)").matches;
+}
+
+const DEFAULT_DEVICE: DeviceSettings = { theme: "system", enterToSend: !touchFirst(), sidebarHidden: false };
 
 function mapChat(chats: Chat[], id: string, fn: (c: Chat) => Chat): Chat[] {
   return chats.map((c) => (c.id === id ? fn(c) : c));
@@ -319,7 +324,18 @@ export const useAppStore = create<AppState>()(
     }),
     {
       name: STORAGE_KEY,
-      version: 2,
+      version: 3,
+      // v3: Enter adds a new line on phones and tablets. "On" was the default everywhere before, so a saved
+      // "on" there was nobody's choice and becomes "off"; a saved "off" was a choice and stays. Older
+      // than v2 is dropped, as before.
+      migrate: (persisted, version) => {
+        if (version < 2) return {} as never;
+        const state = (persisted ?? {}) as { settings?: Partial<DeviceSettings> };
+        if (version < 3 && touchFirst() && state.settings?.enterToSend === true) {
+          state.settings = { ...state.settings, enterToSend: false };
+        }
+        return state as never;
+      },
       // Only this device's preferences; the layout's theme script reads state.settings.theme before paint.
       partialize: (s) => ({
         deviceLanguage: s.deviceLanguage,

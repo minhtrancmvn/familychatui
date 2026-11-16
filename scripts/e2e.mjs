@@ -95,11 +95,33 @@ async function enterProfile(page, prefix) {
   step(`${prefix}: wrong PIN refused, right PIN enters the profile`);
 }
 
+/** Sends what's in the box: Enter on a computer, the Send button on a phone (where Enter adds a new line). */
+async function send(page, box) {
+  if (await page.evaluate(() => matchMedia("(pointer: coarse)").matches)) {
+    await page.getByRole("button", { name: "Send message" }).filter({ visible: true }).click();
+  } else {
+    await box.press("Enter");
+  }
+}
+
+/** Types two lines with `key` between them; checks they stay in the box as two lines, unsent. */
+async function newLine(page, key) {
+  const box = page.getByRole("textbox", { name: "Message" }).filter({ visible: true }).first();
+  const url = page.url();
+  await box.fill("first line");
+  await box.press(key);
+  await box.pressSequentially("second line");
+  const value = await box.inputValue();
+  if (value !== "first line\nsecond line" || page.url() !== url) throw new Error(`${key} sent or lost the line: ${JSON.stringify(value)}`);
+  await box.fill("");
+  return box.getAttribute("enterkeyhint");
+}
+
 /** Sends a prompt and waits for the reply to finish. Returns the assistant text. */
 async function chat(page, prefix, prompt) {
   const box = page.getByRole("textbox", { name: "Message" }).filter({ visible: true }).first();
   await box.fill(prompt);
-  await box.press("Enter");
+  await send(page, box);
   await page.waitForURL("**/chat/**");
   const done = page.getByRole("button", { name: /^(Copy|Copied)$/ }).filter({ visible: true }).last();
   await done.waitFor({ timeout: 180_000 });
@@ -132,7 +154,7 @@ async function pictures(page, prefix) {
   const box = page.getByRole("textbox", { name: "Message" }).filter({ visible: true }).first();
   if ((await box.getAttribute("placeholder")) !== "Describe the picture you want") throw new Error("no picture prompt hint");
   await box.fill("A small orange house on a white background, flat illustration");
-  await box.press("Enter");
+  await send(page, box);
   await page.waitForURL("**/chat/**");
   await page.getByText("Drawing the picture…").waitFor();
   await shot(page, `${prefix}07-drawing`);
@@ -151,7 +173,7 @@ async function pictures(page, prefix) {
   step(`${prefix}: GPT Image drew a picture (${(await res.body()).length} bytes, download "${download}")`);
 
   await box.fill("Make the house blue");
-  await box.press("Enter");
+  await send(page, box);
   await picturesLoaded(page, 2);
   await shot(page, `${prefix}09-edited`);
   await page.reload();
@@ -183,6 +205,16 @@ async function desktop(browser) {
 
   await enterProfile(page, "d");
   await shot(page, "d04-home");
+  const desktopHint = await newLine(page, "Shift+Enter");
+  if (desktopHint !== "send") throw new Error(`desktop Return key hint ${desktopHint}`);
+  // Also while the @ model list is open: Shift+Enter is a new line, not a pick.
+  const box = page.getByRole("textbox", { name: "Message" }).filter({ visible: true }).first();
+  await box.fill("@");
+  await page.getByRole("listbox").waitFor();
+  await box.press("Shift+Enter");
+  if ((await box.inputValue()) !== "@\n") throw new Error(`Shift+Enter in the model list: ${JSON.stringify(await box.inputValue())}`);
+  await box.fill("");
+  step("d: Shift+Enter adds a new line, also with the @ model list open (Enter sends, below)");
   await chat(page, "d", "Reply with just the word: pong");
   // Analytics carry labels and numbers only: never the prompt, the reply or the profile name.
   const events = await trackedEvents(page);
@@ -247,6 +279,9 @@ async function desktop(browser) {
   await page.getByRole("radio", { name: "English" }).first().click();
   await page.getByRole("heading", { name: "Settings" }).waitFor();
   step("d: language switch works and switches back");
+  const version = JSON.parse(readFileSync(new URL("../package.json", import.meta.url), "utf8")).version;
+  await page.getByText(`familychatui · Version ${version}`, { exact: true }).waitFor();
+  step(`d: Settings shows version ${version}`);
 
   // The admin's usage numbers: this run's messages show up, with the chart and the model rows.
   const usage = page.locator("section", { has: page.getByRole("heading", { name: "Family usage" }) });
@@ -322,6 +357,10 @@ async function phone(browser) {
   await shot(page, "m02-profiles");
   await enterProfile(page, "m");
   await shot(page, "m04-home");
+  if (!(await page.evaluate(() => matchMedia("(pointer: coarse)").matches))) throw new Error("phone context isn't touch-first");
+  const phoneHint = await newLine(page, "Enter");
+  if (phoneHint !== "enter") throw new Error(`phone Return key hint ${phoneHint}`);
+  step("m: Enter adds a new line on a phone; the Send button sends (below)");
   await chat(page, "m", "What is 2 + 3? Answer with one number.");
   if (IMAGE) await pictures(page, "m");
   // Settings is the densest screen (the admin sees every section); check it at phone width too.
@@ -337,6 +376,11 @@ async function landscape(browser) {
   const ctx = await browser.newContext({ ...devices["iPhone 15 Pro Max landscape"], locale: "en-US" });
   const page = await ctx.newPage();
   watch(page, "landscape");
+  // A phone that used the app before 0.8.0 saved "Enter sends" (the old default); it switches to new lines.
+  await page.goto(`${BASE}/login`);
+  await page.evaluate(() =>
+    localStorage.setItem("familychatui-device", JSON.stringify({ state: { settings: { theme: "dark", enterToSend: true } }, version: 2 })),
+  );
   await login(page, "l");
   await enterProfile(page, "l");
   const menu = page.locator("#drawer-open");
@@ -368,6 +412,14 @@ async function landscape(browser) {
   await drawer.getByRole("button", { name: "Close menu" }).click();
   await page.waitForFunction(() => document.activeElement?.id === "drawer-open");
   step("l: phone on its side: drawer that scrolls as a whole, 44px buttons, row actions shown, no keyboard pop-up, Close menu returns focus");
+
+  await page.goto(`${BASE}/settings`);
+  const enterSends = await page.getByRole("switch", { name: "Press Enter to send" }).getAttribute("aria-checked");
+  if (enterSends !== "false") throw new Error(`old phone setting not moved to new lines (aria-checked ${enterSends})`);
+  // The rest of what that phone saved survives the move (without a migration it would all be dropped).
+  const dark = await page.getByRole("radio", { name: "Dark" }).getAttribute("aria-checked");
+  if (dark !== "true") throw new Error(`old phone lost its dark theme (aria-checked ${dark})`);
+  step("l: a phone's old saved 'Enter sends' became 'Enter adds a new line'; its dark theme stayed");
   await ctx.close();
 }
 
