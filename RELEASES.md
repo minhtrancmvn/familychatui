@@ -2,6 +2,12 @@
 
 Every merge to `main` deploys automatically and gets an entry here, newest first. Versions follow `package.json`: new features bump the minor number, fixes the patch number.
 
+## 0.8.0 (2026-11-16)
+
+- **On phones and tablets, Return now starts a new line.** Tap the orange send button to send. This makes longer messages easier to write and stops half-finished messages from going out by accident. If you liked Return sending the message, turn on **Settings → Chat → Press Enter to send**.
+- **Shift+Enter always starts a new line** on a computer or a keyboard, even while the @ model list is open.
+- **The app version is shown at the bottom of Settings**, so you can tell whether you have the latest update.
+
 ## 0.7.0 (2026-11-16)
 
 - **Phones on their side work like phones.** Turned sideways, the chat list used to stay open and take a third of the screen. Now it tucks into the menu button (☰) just like when the phone is upright, so the chat gets the whole width. Buttons stay big enough for fingers, and the menu scrolls as a whole on the short screen, so you can see your chats.

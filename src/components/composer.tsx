@@ -255,7 +255,8 @@ export function Composer({
         setMentionIndex((activeMention - 1 + mentionOptions.length) % mentionOptions.length);
         return;
       }
-      if (e.key === "Enter" || e.key === "Tab") {
+      // Shift+Enter is always a new line, also while the model list is open.
+      if ((e.key === "Enter" && !e.shiftKey) || e.key === "Tab") {
         e.preventDefault();
         pickMention(mentionOptions[activeMention].id);
         return;
@@ -381,6 +382,8 @@ export function Composer({
           onSelect={(e) => setCaret(e.currentTarget.selectionStart)}
           onKeyDown={onKeyDown}
           onPaste={onPaste}
+          // The phone keyboard's Return key says what it does.
+          enterKeyHint={enterToSend ? "send" : "enter"}
           className="block max-h-[220px] w-full resize-none bg-transparent px-4 pb-1 pt-3.5 text-[15px] leading-6 outline-none placeholder:text-muted"
         />
 

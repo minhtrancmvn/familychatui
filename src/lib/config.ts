@@ -1,6 +1,9 @@
 /** Display name of the app. Change freely. */
 export const APP_NAME = "familychatui";
 
+/** package.json's version, set at build time by next.config.ts. Shown in Settings. */
+export const APP_VERSION = process.env.NEXT_PUBLIC_APP_VERSION ?? "";
+
 /**
  * Google Tag Manager container from NEXT_PUBLIC_GTM_ID at build time (CI sets it from the GTM_ID
  * repository variable). Empty = no Tag Manager. Loaded in production builds only. Whatever tags the
