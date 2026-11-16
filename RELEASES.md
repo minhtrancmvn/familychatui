@@ -2,6 +2,12 @@
 
 Every merge to `main` deploys automatically and gets an entry here, newest first. Versions follow `package.json`: new features bump the minor number, fixes the patch number.
 
+## 0.7.0 (2026-11-16)
+
+- **Phones on their side work like phones.** Turned sideways, the chat list used to stay open and take a third of the screen. Now it tucks into the menu button (☰) just like when the phone is upright, so the chat gets the whole width. Buttons stay big enough for fingers, and the menu scrolls as a whole on the short screen, so you can see your chats.
+- **Hide the sidebar on a computer or iPad.** Press the panel button at the top of the sidebar to put it away and give the chat the whole width; the button at the top left brings it back. Each device remembers your choice.
+- On phones, the menu now has its own close button next to the app name.
+
 ## 0.6.0 (2026-11-15)
 
 - **Family usage in Settings (admin only).** See how the family uses the app over the last 7, 30 or 90 days: messages per day, replies and failures for each model, pictures made, the most common errors and how many profiles were active. It shows totals only, never who said what.

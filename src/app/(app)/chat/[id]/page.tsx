@@ -1,5 +1,6 @@
 "use client";
 
+import clsx from "clsx";
 import { ArrowDown, MoreHorizontal, Pencil, Pin, PinOff, SquarePen, Trash2 } from "lucide-react";
 import Link from "next/link";
 import { useParams, useRouter } from "next/navigation";
@@ -9,7 +10,7 @@ import { ModelAvatar } from "@/components/avatars";
 import { Composer } from "@/components/composer";
 import { ChatMessage } from "@/components/message";
 import { MenuItem, Popover } from "@/components/popover";
-import { PageHeader } from "@/components/shell";
+import { PageHeader, useShell } from "@/components/shell";
 import { Button, ConfirmDialog, IconButton, Modal } from "@/components/ui";
 import { useT } from "@/lib/i18n";
 import { getModel, hasModel } from "@/lib/models";
@@ -56,6 +57,7 @@ function useLoadedChat(chatId: string) {
 
 function ChatView({ chatId }: { chatId: string }) {
   const t = useT();
+  const { sidebarHidden } = useShell();
   const { chat, state } = useLoadedChat(chatId);
   const renameChat = useAppStore((s) => s.renameChat);
   const deleteChat = useAppStore((s) => s.deleteChat);
@@ -139,7 +141,11 @@ function ChatView({ chatId }: { chatId: string }) {
           href="/"
           aria-label={t("nav.newChat")}
           title={t("nav.newChat")}
-          className="inline-flex size-11 items-center justify-center rounded-lg text-muted hover:bg-surface-2 hover:text-text md:hidden"
+          // The sidebar has its own New chat button; put away on a desktop, this one stands in.
+          className={clsx(
+            "inline-flex size-11 items-center justify-center rounded-lg text-muted hover:bg-surface-2 hover:text-text",
+            !sidebarHidden && "md:hidden",
+          )}
         >
           <SquarePen className="size-5" />
         </Link>

@@ -56,6 +56,9 @@ const en = {
   "editor.confirmBody": "This deletes the profile and all of its chats. This can't be undone.",
 
   "nav.newChat": "New chat",
+  "nav.hideSidebar": "Hide sidebar",
+  "nav.showSidebar": "Show sidebar",
+  "nav.closeMenu": "Close menu",
   "nav.explore": "Explore models",
   "nav.search": "Search chats",
   "nav.chats": "Chats",
@@ -295,6 +298,9 @@ const vi: Dict = {
   "editor.confirmBody": "Hồ sơ và mọi cuộc trò chuyện của hồ sơ này sẽ bị xóa vĩnh viễn.",
 
   "nav.newChat": "Trò chuyện mới",
+  "nav.hideSidebar": "Ẩn thanh bên",
+  "nav.showSidebar": "Hiện thanh bên",
+  "nav.closeMenu": "Đóng menu",
   "nav.explore": "Khám phá mô hình",
   "nav.search": "Tìm cuộc trò chuyện",
   "nav.chats": "Cuộc trò chuyện",

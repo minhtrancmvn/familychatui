@@ -9,6 +9,7 @@ import { ModelMenu } from "@/components/model-menu";
 import { Popover } from "@/components/popover";
 import { IconButton, PRESS } from "@/components/ui";
 import { ACCEPT, checkFile, encodeAttachment, isDocument, readDocument } from "@/lib/attachments";
+import { DESKTOP_MEDIA } from "@/lib/config";
 import { useT } from "@/lib/i18n";
 import { track } from "@/lib/analytics";
 import { getModel } from "@/lib/models";
@@ -66,7 +67,7 @@ export function Composer({
 
   // Focus on desktop only; on phones it would pop the keyboard over the conversation.
   useEffect(() => {
-    if (autoFocus && window.matchMedia("(min-width: 768px)").matches) textareaRef.current?.focus();
+    if (autoFocus && window.matchMedia(DESKTOP_MEDIA).matches) textareaRef.current?.focus();
   }, [autoFocus]);
 
   // Drop files anywhere on the page to attach them (desktop). The overlay shows while files hover.
