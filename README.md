@@ -13,7 +13,7 @@ What changed in each version: [RELEASES.md](RELEASES.md).
 - **Streaming that survives a sleeping phone.** Replies are written on the server, detached from the request. If the connection drops mid-reply, the app re-attaches and picks up the rest. Only Stop ends a reply early.
 - **Models.** Friendly names over 9router model ids, a model picker, `@` to switch models mid-message, and "Retry with…" another model.
 - **Web search with sources** for models that support it (Codex models through `/v1/responses` with structured citations).
-- **Attachments.** Photos (downscaled in the browser, for vision models), text files, and PDF / Word / Excel / PowerPoint files (old and new formats, plus OpenDocument and iWork), which the server turns into text. Drag and drop files anywhere on the page.
+- **Attachments.** Photos (downscaled in the browser, for vision models), text, Markdown and code files, Jupyter notebooks (turned into Markdown in the browser: cells, code and text output, without pictures), and PDF / Word / Excel / PowerPoint files (old and new formats, plus OpenDocument and iWork), which the server turns into text. Drag and drop files anywhere on the page.
 - **Pictures.** GPT Image draws what you describe, changes a photo you attach, and in the same chat changes the picture it just made ("now make it blue"). Pictures stay with the chat and can be downloaded.
 - **Chats name themselves** after the first reply, with a short title in the chat's language.
 - **Pinned chats** stay at the top of the list, in the order you drag them to, and are never deleted.

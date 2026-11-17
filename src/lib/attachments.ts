@@ -1,29 +1,61 @@
-import { DOCUMENT_ACCEPT, documentKind, type ExtractErrorCode, MAX_DOCUMENT_BYTES } from "./documents";
+import { DOCUMENT_ACCEPT, documentKind, type ExtractErrorCode, extensionOf, MAX_DOCUMENT_BYTES } from "./documents";
+import { notebookToText } from "./notebook";
 import type { OutgoingAttachment } from "./types";
 
 /**
  * Turns picked files into what the server accepts: photos downscaled to JPEG data URLs (a phone photo
- * drops from ~4 MB to ~300 KB, which also keeps model token costs down), text files as their text,
- * PDFs and Office files as the text the server extracts from them.
+ * drops from ~4 MB to ~300 KB, which also keeps model token costs down), text and code files as their
+ * text, Jupyter notebooks as Markdown made here, PDFs and Office files as the text the server extracts.
  */
 
 const MAX_IMAGE_SIDE = 1600;
 const MAX_TEXT_BYTES = 200_000;
-const TEXT_EXTENSIONS = /\.(txt|md|markdown|csv|tsv|json|log|xml|ya?ml|html?)$/i;
+/** Same cut-off as documents read on the server (src/server/extract.ts). */
+const MAX_NOTEBOOK_CHARS = 200_000;
 
-export const ACCEPT = `image/*,.txt,.md,.csv,.tsv,.json,.log,.xml,.yaml,.yml,.html,${DOCUMENT_ACCEPT}`;
+/** Plain text, Markdown, data, config and source code: sent as they are. */
+const TEXT_EXTENSIONS = new Set(
+  [
+    // text, Markdown, data
+    "txt text md markdown mdx rst adoc org tex bib csv tsv json jsonl jsonc json5 log xml yaml yml toml ini cfg conf properties srt vtt diff patch",
+    // web
+    "html htm css scss sass less js mjs cjs jsx ts mts cts tsx vue svelte astro graphql gql",
+    // Python, data science
+    "py pyi pyw r rmd qmd jl sql",
+    // other languages
+    "c h cc cpp cxx hh hpp cs java kt kts scala groovy gradle go rs swift m mm rb php pl pm lua dart ex exs erl hs clj elm ml fs nim zig sol proto",
+    // shell, build, infrastructure
+    "sh bash zsh fish ps1 bat cmd mk cmake dockerfile tf hcl nix",
+  ]
+    .join(" ")
+    .split(" "),
+);
+
+export const ACCEPT = [
+  "image/*",
+  ".ipynb",
+  ...Array.from(TEXT_EXTENSIONS, (ext) => `.${ext}`),
+  DOCUMENT_ACCEPT,
+].join(",");
 
 export function isImage(file: File): boolean {
   return file.type.startsWith("image/");
 }
 
-/** PDF, Word, Excel, PowerPoint, OpenDocument, iWork: read on the server. */
+function isNotebook(file: File): boolean {
+  return extensionOf(file.name) === "ipynb";
+}
+
+/**
+ * Files read before they can be sent: PDF, Word, Excel, PowerPoint, OpenDocument and iWork on the
+ * server, Jupyter notebooks here.
+ */
 export function isDocument(file: File): boolean {
-  return documentKind(file.name) !== null;
+  return documentKind(file.name) !== null || isNotebook(file);
 }
 
 export function isTextFile(file: File): boolean {
-  return file.type.startsWith("text/") || file.type === "application/json" || TEXT_EXTENSIONS.test(file.name);
+  return file.type.startsWith("text/") || file.type === "application/json" || TEXT_EXTENSIONS.has(extensionOf(file.name));
 }
 
 export type FileCheck = "ok" | "unsupported" | "too-big";
@@ -35,8 +67,21 @@ export function checkFile(file: File): FileCheck {
   return "unsupported";
 }
 
-/** Uploads a document and returns its text, or why it couldn't be read. */
+async function readNotebook(file: File): Promise<{ text: string } | { error: ExtractErrorCode }> {
+  let text: string;
+  try {
+    text = notebookToText(await file.text());
+  } catch {
+    return { error: "failed" };
+  }
+  if (!text.trim()) return { error: "empty" };
+  if (text.length <= MAX_NOTEBOOK_CHARS) return { text };
+  return { text: `${text.slice(0, MAX_NOTEBOOK_CHARS)}\n\n[… the rest of the notebook was cut off]` };
+}
+
+/** Returns a document's text (see isDocument), or why it couldn't be read. */
 export async function readDocument(file: File): Promise<{ text: string } | { error: ExtractErrorCode }> {
+  if (isNotebook(file)) return readNotebook(file);
   try {
     const res = await fetch(`/api/attachments/extract?name=${encodeURIComponent(file.name)}`, {
       method: "POST",

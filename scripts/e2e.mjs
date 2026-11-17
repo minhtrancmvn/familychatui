@@ -1,5 +1,5 @@
 // Real end-to-end flow in a browser, desktop, phone and a phone on its side: login, profiles with PIN, a chat with a real
-// 9router reply, reload persistence, rename, sidebar hide/show, settings, manage-with-PIN, logout. Takes screenshots and
+// 9router reply, a code file and a Jupyter notebook, reload persistence, rename, sidebar hide/show, settings, manage-with-PIN, logout. Takes screenshots and
 // reports console/page errors and horizontal overflow.
 //
 // Usage: npm run e2e  (needs a running server; it creates profiles and chats, so point it at a
@@ -88,7 +88,9 @@ async function enterProfile(page, prefix) {
   await page.getByRole("button", { name: `${NAME} (PIN required)` }).click();
   await page.getByRole("dialog").waitFor();
   for (const d of "1111") await page.keyboard.press(d);
-  await page.getByText("Wrong PIN, try again.").waitFor();
+  // The pad keeps this text in place (transparent) before any error, so wait for it to turn red:
+  // digits typed while the wrong PIN is still being checked are ignored.
+  await page.locator("p.text-danger", { hasText: "Wrong PIN, try again." }).waitFor();
   await shot(page, `${prefix}03-pin-wrong`);
   for (const d of PIN) await page.keyboard.press(d);
   await page.waitForURL(`${BASE}/`);
@@ -295,6 +297,55 @@ async function desktop(browser) {
   await page.keyboard.press("ArrowLeft");
   await shot(page, "d10-usage");
   step(`d: Family usage: messages sent ${count}, daily chart, model rows, 7-day switch`);
+
+  // A code file and a Jupyter notebook through the file picker: the notebook becomes Markdown in the
+  // browser (its plot and long log left out), and the model answers from both.
+  await page.goto(`${BASE}/`);
+  await page.getByRole("textbox", { name: "Message" }).filter({ visible: true }).first().waitFor();
+  const notebook = {
+    nbformat: 4,
+    nbformat_minor: 5,
+    metadata: { language_info: { name: "python" } },
+    cells: [
+      { cell_type: "markdown", metadata: {}, source: ["# Harvest\n", "```python\n", "load()\n", "```"] },
+      {
+        cell_type: "code",
+        execution_count: 1,
+        metadata: {},
+        source: ["print(sum(range(5)))"],
+        outputs: [{ output_type: "stream", name: "stdout", text: Array.from({ length: 3000 }, (_, i) => `tick ${i}\n`) }],
+      },
+      {
+        cell_type: "code",
+        execution_count: 2,
+        metadata: {},
+        source: "plot()",
+        outputs: [{ output_type: "display_data", metadata: {}, data: { "image/png": "iVBORw0KGgo".repeat(20_000), "text/plain": "<Figure>" } }],
+      },
+      {
+        cell_type: "code",
+        execution_count: 3,
+        metadata: {},
+        source: ["mangoes / 0"],
+        outputs: [{ output_type: "error", ename: "ZeroDivisionError", evalue: "division by zero", traceback: ["\u001b[0;31mZeroDivisionError\u001b[0m: division by zero"] }],
+      },
+    ],
+  };
+  await page.locator('input[type="file"]').setInputFiles([
+    { name: "greet.py", mimeType: "text/x-python", buffer: Buffer.from('print("hello from greet")\n') },
+    { name: "harvest.ipynb", mimeType: "", buffer: Buffer.from(JSON.stringify(notebook)) },
+  ]);
+  await page.getByText("greet.py").waitFor();
+  await page.getByText("harvest.ipynb").waitFor();
+  await page.getByText("Reading…").waitFor({ state: "detached", timeout: 10_000 });
+  const refused = page.getByText(/Couldn't read|You can attach|too large to attach|no readable text/);
+  if (await refused.count()) throw new Error(`code/notebook refused: ${await refused.first().innerText()}`);
+  await shot(page, "d07a-code-attached");
+  const codeReply = await chat(page, "d", "What does greet.py print, and which error does cell 3 of the notebook raise? Short answer.");
+  if (EXPECT_REPLY && !(/hello from greet/i.test(codeReply) && /ZeroDivisionError/.test(codeReply))) {
+    throw new Error(`code files not read: ${codeReply}`);
+  }
+  step("d: picked .py + .ipynb are read and answered from");
 
   if (DOCS) {
     // Drag a Word file onto the page: overlay shows, the server reads it, the model answers from it.

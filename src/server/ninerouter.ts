@@ -2,6 +2,7 @@ import "server-only";
 
 import { getModel, MODELS } from "@/lib/models";
 import type { ReplyEvent, Source } from "@/lib/types";
+import { fenced } from "@/lib/util";
 
 import { ninerouterApiKey, ninerouterBaseUrl } from "./env";
 import type { HistoryMessage } from "./repo";
@@ -69,7 +70,8 @@ function systemPrompt(): string {
 function textOf(m: HistoryMessage, vision: boolean): string {
   const parts = [m.content];
   for (const a of m.attachments) {
-    if (a.kind === "file") parts.push(`Attached file "${a.name}":\n\`\`\`\n${a.data}\n\`\`\``);
+    // A longer fence when needed: Markdown files and notebooks contain code blocks of their own.
+    if (a.kind === "file") parts.push(`Attached file "${a.name}":\n${fenced(a.data)}`);
     else if (!vision) parts.push(`[The user attached an image, "${a.name}", but this model can't see images.]`);
   }
   return parts.filter(Boolean).join("\n\n");
