@@ -2,6 +2,12 @@
 
 Every merge to `main` deploys automatically and gets an entry here, newest first. Versions follow `package.json`: new features bump the minor number, fixes the patch number.
 
+## 0.9.0 (2026-11-17)
+
+- **Attach code and Jupyter notebooks.** Press the paperclip (or drop a file on the chat) to attach Python, JavaScript, TypeScript, Go, Rust, Java, C/C++, SQL, shell scripts, config files (YAML, TOML, INI) and many other code files. Markdown and plain text attach the same way as before.
+- **Notebooks (.ipynb) are read cell by cell.** The model gets the text, the code and what each cell printed, error messages included, so you can ask "why does cell 4 fail?". Charts and pictures in a notebook are left out, and very long printouts keep only their start and end.
+- Files that contain code blocks of their own, such as Markdown notes, now reach the model in one piece.
+
 ## 0.8.0 (2026-11-16)
 
 - **On phones and tablets, Return now starts a new line.** Tap the orange send button to send. This makes longer messages easier to write and stops half-finished messages from going out by accident. If you liked Return sending the message, turn on **Settings → Chat → Press Enter to send**.

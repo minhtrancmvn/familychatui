@@ -42,7 +42,7 @@ Private, Poe-style chat app for the owner's family. Its only model provider is a
   - `models.ts`: model catalog using real 9router ids with friendly names.
   - `store.ts`: zustand store mirroring the server; only device preferences persist in localStorage.
   - `runner.ts`: sends messages and follows the SSE reply outside React, re-attaching after dropped connections.
-  - `api.ts` (fetch helpers), `attachments.ts` (image downscale, text files), `config.ts`, `types.ts`.
+  - `api.ts` (fetch helpers), `attachments.ts` (image downscale, text and code files), `notebook.ts` (.ipynb to Markdown in the browser), `config.ts`, `types.ts`.
 - `src/components/`: composer, messages, markdown, sidebar, shell, model menu, popover, avatars, PIN pad, profile editor, ui primitives.
 
 ## Conventions

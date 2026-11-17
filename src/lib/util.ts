@@ -6,6 +6,14 @@ export function uid(): string {
   return Date.now().toString(36) + Math.random().toString(36).slice(2, 10);
 }
 
+/** A Markdown code block whose fence is longer than any run of backticks in `text`, so the text can't close it early. */
+export function fenced(text: string, lang = ""): string {
+  let longest = 0;
+  for (const run of text.matchAll(/`+/g)) longest = Math.max(longest, run[0].length);
+  const fence = "`".repeat(Math.max(3, longest + 1));
+  return `${fence}${lang}\n${text}\n${fence}`;
+}
+
 export function formatBytes(bytes: number): string {
   if (bytes < 1024) return `${bytes} B`;
   if (bytes < 1024 * 1024) return `${Math.round(bytes / 1024)} KB`;
