@@ -2,6 +2,10 @@
 
 Every merge to `main` deploys automatically and gets an entry here, newest first. Versions follow `package.json`: new features bump the minor number, fixes the patch number.
 
+## 0.10.1 (2026-11-19)
+
+- **Behind the scenes:** corrected the notes on how much server memory the country check uses. Nothing changes in the app itself.
+
 ## 0.10.0 (2026-11-19)
 
 - **The chat only opens in Vietnam, Singapore and the US.** Anywhere else, people see a short page in Vietnamese and English instead of the chat. Travelling? Turn on the Singapore VPN.
