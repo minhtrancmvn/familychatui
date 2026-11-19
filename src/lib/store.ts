@@ -26,7 +26,8 @@ interface AppState {
   settings: Settings;
 
   loadSession: () => Promise<void>;
-  unlock: (password: string) => Promise<GuessResult>;
+  /** `captcha`: a reCAPTCHA token when the server asks for one (see /api/login GET). */
+  unlock: (password: string, captcha?: string) => Promise<GuessResult>;
   lockDevice: () => void;
   setDeviceLanguage: (lang: Lang) => void;
   selectProfile: (id: string, pin?: string) => Promise<GuessResult>;
@@ -140,9 +141,9 @@ export const useAppStore = create<AppState>()(
         }));
       },
 
-      unlock: async (password) => {
+      unlock: async (password, captcha) => {
         try {
-          await api("/api/login", { body: { password } });
+          await api("/api/login", { body: { password, captcha } });
         } catch (err) {
           return guessResult(err);
         }

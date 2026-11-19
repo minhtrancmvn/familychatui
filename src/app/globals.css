@@ -299,3 +299,9 @@ body {
     transition: none !important;
   }
 }
+
+/* reCAPTCHA v3's floating badge would cover the screen corner on phones; the login screen shows the
+   notice Google asks for instead (src/lib/recaptcha.ts). */
+.grecaptcha-badge {
+  visibility: hidden;
+}

@@ -30,6 +30,16 @@ export function familyPassword(): string {
   return value;
 }
 
+/**
+ * reCAPTCHA v3 keys for the family-password screen. The check is on only when both are set, so local
+ * dev and the e2e run work without them.
+ */
+export function recaptchaKeys(): { siteKey: string; secretKey: string } | null {
+  const siteKey = process.env.RECAPTCHA_SITE_KEY?.trim();
+  const secretKey = process.env.RECAPTCHA_SECRET_KEY?.trim();
+  return siteKey && secretKey ? { siteKey, secretKey } : null;
+}
+
 let secret: Buffer | null = null;
 
 /** Random per-install secret, kept in DATA_DIR/session-secret (created on first use). */

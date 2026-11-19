@@ -8,7 +8,8 @@ Type=simple
 User=familychat
 Group=familychat
 WorkingDirectory=/opt/familychatui/current
-# NINEROUTER_API_KEY and FAMILY_PASSWORD (root:familychat 0640, never committed).
+# NINEROUTER_API_KEY, FAMILY_PASSWORD and optional RECAPTCHA_SITE_KEY + RECAPTCHA_SECRET_KEY
+# (root:familychat 0640, never committed).
 EnvironmentFile=/etc/familychatui/env
 Environment=NODE_ENV=production
 Environment=PORT=3200

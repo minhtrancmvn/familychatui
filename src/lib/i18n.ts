@@ -24,6 +24,11 @@ const en = {
   "login.submit": "Unlock chats",
   "login.remember": "You stay signed in on this device.",
   "login.wait": "Too many tries. Wait {seconds}s and try again.",
+  "login.captcha": "We couldn't confirm you're a person. Wait a moment, then try again.",
+  "login.captchaLoad": "The security check didn't load. Check your internet connection and reload the page.",
+  "login.recaptcha": "This site is protected by reCAPTCHA and the Google {privacy} and {terms} apply.",
+  "login.recaptchaPrivacy": "Privacy Policy",
+  "login.recaptchaTerms": "Terms of Service",
 
   "profiles.title": "Who's chatting?",
   "profiles.manageTitle": "Manage profiles",
@@ -267,6 +272,11 @@ const vi: Dict = {
   "login.submit": "Mở khóa",
   "login.remember": "Thiết bị này sẽ được ghi nhớ.",
   "login.wait": "Thử sai quá nhiều lần. Đợi {seconds} giây rồi thử lại nhé.",
+  "login.captcha": "Chưa xác nhận được bạn là người thật. Đợi một chút rồi thử lại nhé.",
+  "login.captchaLoad": "Không tải được bước kiểm tra bảo mật. Kiểm tra kết nối mạng rồi tải lại trang nhé.",
+  "login.recaptcha": "Trang này được bảo vệ bởi reCAPTCHA, theo {privacy} và {terms} của Google.",
+  "login.recaptchaPrivacy": "Chính sách quyền riêng tư",
+  "login.recaptchaTerms": "Điều khoản dịch vụ",
 
   "profiles.title": "Ai đang trò chuyện?",
   "profiles.manageTitle": "Quản lý hồ sơ",

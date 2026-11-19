@@ -49,6 +49,7 @@ npm run dev                  # http://localhost:3000
 | `NINEROUTER_BASE_URL` | no | Defaults to `http://127.0.0.1:20128/v1`. |
 | `DATA_DIR` | no | Where the SQLite database lives. Defaults to `./data`. |
 | `NEXT_PUBLIC_GTM_ID` | no | A Google Tag Manager container for production builds. Unset means no tracking. |
+| `RECAPTCHA_SITE_KEY`, `RECAPTCHA_SECRET_KEY` | no | A Google reCAPTCHA **v3** key pair. With both set, the family-password screen checks for bots (nothing to click). Read at runtime, so no rebuild is needed. |
 
 The first profile you create becomes the admin. The model catalog (names, descriptions, logos, which models start hidden) lives in `src/lib/models.ts`; the ids must match your 9router's `/v1/models`.
 
@@ -61,6 +62,8 @@ The `deploy/` folder targets a single Ubuntu server with nginx, certbot and syst
 1. Point a DNS record at the server, copy `deploy/` over, and run `DOMAIN=chat.example.com bash setup-host.sh`. It installs the document converters, creates an unprivileged `familychat` user, the systemd unit, the nginx site and the certificate. Put `NINEROUTER_API_KEY` and `FAMILY_PASSWORD` in `/etc/familychatui/env`.
 2. Build and ship a release with `DEPLOY_HOST=user@host DEPLOY_KEY=~/.ssh/key deploy/deploy.sh`, or let GitHub Actions do it: on every push to `main`, `.github/workflows/ci.yml` builds the standalone bundle and deploys it. It needs the secrets `DEPLOY_HOST`, `DEPLOY_SSH_KEY` and `DEPLOY_KNOWN_HOSTS` and the variable `DEPLOY_DOMAIN` (plus `GTM_ID` if you want Tag Manager).
 
+`setup-host.sh` also limits the site to visitors from Vietnam, Singapore and the US: nginx answers everyone else with a short bilingual 403 page. The allowlist (`deploy/update-geo-allowlist.py`, refreshed daily by `familychatui-geo.timer`) combines DB-IP's country list with Apple's iCloud Private Relay egress list, using Apple's own country label for relay addresses, which geolocation databases often place in the wrong country. Edit `COUNTRIES` in the script to change it.
+
 The server never runs npm. Releases are uploaded through `deploy-gate`, the only command the CI key may run, and `activate-release.sh` rolls back if the new release doesn't answer its health check. After a good release, `prune-releases.sh` keeps the 5 newest releases plus any from the last 7 days (never the live one).
 
 ## Security notes
@@ -69,11 +72,12 @@ The server never runs npm. Releases are uploaded through `deploy-gate`, the only
 - Sessions are a signed, httpOnly cookie whose key is derived from the family password, so changing the password signs out every other device.
 - PINs and the family password are scrypt-hashed. Wrong guesses are rate-limited per visitor IP and per profile.
 - With `NEXT_PUBLIC_GTM_ID` set, the app sends Google Analytics events (`src/lib/analytics.ts`) with labels and numbers only: never message text, chat titles, file or profile names, or ids.
+- The family-password screen can use reCAPTCHA v3 (see the env table). A failed check counts as a wrong guess; if Google can't be reached, the password check still runs. Every page sends `X-Robots-Tag: noindex` and `robots.txt` disallows crawling.
 - The CI deploy key can only upload or activate a release, and the app runs as its own user without sudo or access to `/home`.
 
 ## Credits
 
-Provider logos are from [SVG Logos](https://github.com/gilbarbara/logos) by Gil Barbara (CC0). The logos are trademarks of their owners. The font is Be Vietnam Pro (SIL Open Font License).
+IP geolocation by [DB-IP](https://db-ip.com) (CC BY 4.0). Provider logos are from [SVG Logos](https://github.com/gilbarbara/logos) by Gil Barbara (CC0). The logos are trademarks of their owners. The font is Be Vietnam Pro (SIL Open Font License).
 
 ## License
 

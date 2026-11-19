@@ -2,12 +2,14 @@
 
 import { Eye, EyeOff } from "lucide-react";
 import { useRouter } from "next/navigation";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 
 import { Logo } from "@/components/logo";
 import { Button, FullScreenLoader, LANG_OPTIONS, Segmented } from "@/components/ui";
-import { APP_NAME } from "@/lib/config";
+import { api, ApiError } from "@/lib/api";
+import { APP_NAME, RECAPTCHA_ACTION } from "@/lib/config";
 import { useLang, useT } from "@/lib/i18n";
+import { loadRecaptcha, recaptchaToken } from "@/lib/recaptcha";
 import { useAppStore, useHydrated } from "@/lib/store";
 
 export default function LoginPage() {
@@ -22,10 +24,31 @@ export default function LoginPage() {
   const [show, setShow] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
+  // reCAPTCHA site key from the server; null while the check is off (local dev, e2e).
+  const [siteKey, setSiteKey] = useState<string | null>(null);
+  const siteKeyRequest = useRef<Promise<string | null> | null>(null);
 
   useEffect(() => {
     if (hydrated && unlocked) router.replace("/profiles");
   }, [hydrated, unlocked, router]);
+
+  useEffect(() => {
+    if (!hydrated || unlocked) return;
+    const request = api<{ recaptchaSiteKey: string | null }>("/api/login")
+      .then((data) => data.recaptchaSiteKey)
+      .catch(() => null); // the server then answers "captcha" if it needs a token
+    siteKeyRequest.current = request;
+    let live = true;
+    void request.then((key) => {
+      if (!live || !key) return;
+      setSiteKey(key);
+      // Load Google's script now so it sees the visit; a failure shows up when the form is sent.
+      loadRecaptcha(key).catch(() => undefined);
+    });
+    return () => {
+      live = false;
+    };
+  }, [hydrated, unlocked]);
 
   if (!hydrated || unlocked) return <FullScreenLoader />;
 
@@ -49,15 +72,25 @@ export default function LoginPage() {
               if (busy) return;
               setBusy(true);
               try {
-                const result = await unlock(password);
+                let captcha: string | undefined;
+                const key = await siteKeyRequest.current;
+                if (key) {
+                  try {
+                    captcha = await recaptchaToken(key, RECAPTCHA_ACTION);
+                  } catch {
+                    setError(t("login.captchaLoad"));
+                    return;
+                  }
+                }
+                const result = await unlock(password, captcha);
                 if (result === "ok") {
                   router.replace("/profiles");
                   return;
                 }
                 setError(result === "wrong" ? t("login.wrong") : t("login.wait", { seconds: result.wait }));
                 setPassword("");
-              } catch {
-                setError(t("error.generic"));
+              } catch (err) {
+                setError(err instanceof ApiError && err.code === "captcha" ? t("login.captcha") : t("error.generic"));
               } finally {
                 setBusy(false);
               }
@@ -101,9 +134,31 @@ export default function LoginPage() {
             </Button>
             <p className="mt-3 text-center text-xs text-muted">{t("login.remember")}</p>
           </form>
+          {siteKey && <RecaptchaNotice />}
 
         </div>
       </div>
     </div>
+  );
+}
+
+/** The notice Google asks for when its reCAPTCHA badge is hidden (globals.css). */
+function RecaptchaNotice() {
+  const t = useT();
+  const [before, rest = ""] = t("login.recaptcha").split("{privacy}");
+  const [middle, after = ""] = rest.split("{terms}");
+  const link = "underline underline-offset-2 hover:text-text";
+  return (
+    <p className="mt-6 text-center text-xs leading-relaxed text-muted">
+      {before}
+      <a href="https://policies.google.com/privacy" target="_blank" rel="noopener noreferrer" className={link}>
+        {t("login.recaptchaPrivacy")}
+      </a>
+      {middle}
+      <a href="https://policies.google.com/terms" target="_blank" rel="noopener noreferrer" className={link}>
+        {t("login.recaptchaTerms")}
+      </a>
+      {after}
+    </p>
   );
 }

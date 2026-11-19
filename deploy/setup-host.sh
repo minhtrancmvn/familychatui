@@ -27,6 +27,7 @@ sudo install -d -o "$ADMIN" -g "$ADMIN" -m 755 "$ROOT" "$ROOT/releases" "$ROOT/d
 sudo install -o root -g root -m 755 "$DEPLOY_DIR/deploy-gate.sh" "$ROOT/deploy/deploy-gate"
 sudo install -o root -g root -m 755 "$DEPLOY_DIR/activate-release.sh" "$ROOT/deploy/activate-release.sh"
 sudo install -o root -g root -m 755 "$DEPLOY_DIR/prune-releases.sh" "$ROOT/deploy/prune-releases.sh"
+sudo install -o root -g root -m 755 "$DEPLOY_DIR/update-geo-allowlist.py" "$ROOT/deploy/update-geo-allowlist.py"
 
 sudo install -d -o root -g familychat -m 750 /etc/familychatui
 if ! sudo test -f /etc/familychatui/env; then
@@ -35,6 +36,8 @@ if ! sudo test -f /etc/familychatui/env; then
 fi
 
 sudo install -m 644 "$DEPLOY_DIR/familychatui.service" /etc/systemd/system/familychatui.service
+sudo install -m 644 "$DEPLOY_DIR/familychatui-geo.service" /etc/systemd/system/familychatui-geo.service
+sudo install -m 644 "$DEPLOY_DIR/familychatui-geo.timer" /etc/systemd/system/familychatui-geo.timer
 sudo systemctl daemon-reload
 sudo systemctl enable familychatui
 
@@ -69,5 +72,20 @@ sudo systemctl reload nginx
 
 # HTTP-01 works through the Cloudflare proxy as long as port 80 is not force-redirected to HTTPS.
 sudo certbot --nginx --non-interactive --agree-tos --redirect --register-unsafely-without-email -d "$DOMAIN" --keep-until-expiring
+
+# Only Vietnam, Singapore and the US (iCloud Private Relay included) may use the chat site: build the
+# allowlist (DB-IP + Apple's relay list, refreshed daily by a timer), then make the HTTPS server answer
+# 403 with a short bilingual page to everyone else. Done after certbot so the first server block is the
+# HTTPS one; port 80 keeps serving certificate renewals. Other sites on the host are not restricted.
+sudo install -m 644 "$DEPLOY_DIR/nginx-familychatui-geo.conf" /etc/nginx/snippets/familychatui-geo.conf
+if [[ ! -f /etc/nginx/conf.d/familychatui-geo.conf ]]; then
+    sudo python3 "$ROOT/deploy/update-geo-allowlist.py"
+fi
+sudo systemctl enable --now familychatui-geo.timer
+if ! sudo grep -q 'familychatui-geo.conf' "/etc/nginx/sites-available/$DOMAIN"; then
+    sudo sed -i '0,/include \/etc\/nginx\/snippets\/cloudflare-realip.conf;/s//&\n    include \/etc\/nginx\/snippets\/familychatui-geo.conf;/' "/etc/nginx/sites-available/$DOMAIN"
+fi
+sudo nginx -t
+sudo systemctl reload nginx
 
 printf '\nHost ready. Deploy with deploy/deploy.sh (or push to main), then check https://%s\n' "$DOMAIN"
