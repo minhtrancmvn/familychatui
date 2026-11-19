@@ -428,7 +428,8 @@ async function landscape(browser) {
   const page = await ctx.newPage();
   watch(page, "landscape");
   // A phone that used the app before 0.8.0 saved "Enter sends" (the old default); it switches to new lines.
-  await page.goto(`${BASE}/login`);
+  // Wait for the page's own session load first: it saves device settings and would overwrite the seed.
+  await page.goto(`${BASE}/login`, { waitUntil: "networkidle" });
   await page.evaluate(() =>
     localStorage.setItem("familychatui-device", JSON.stringify({ state: { settings: { theme: "dark", enterToSend: true } }, version: 2 })),
   );
