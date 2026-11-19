@@ -17,6 +17,10 @@ const nextConfig: NextConfig = {
   },
   // The dev-tools button sits on top of the sidebar profile avatar.
   devIndicators: false,
+  // Private family app: keep every page out of search results (robots.txt also disallows crawling).
+  async headers() {
+    return [{ source: "/:path*", headers: [{ key: "X-Robots-Tag", value: "noindex, nofollow" }] }];
+  },
   turbopack: {
     // A stray package-lock.json in the home folder otherwise makes Next guess the wrong workspace root.
     root: import.meta.dirname,

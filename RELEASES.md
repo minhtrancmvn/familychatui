@@ -2,6 +2,13 @@
 
 Every merge to `main` deploys automatically and gets an entry here, newest first. Versions follow `package.json`: new features bump the minor number, fixes the patch number.
 
+## 0.10.0 (2026-11-19)
+
+- **The chat only opens in Vietnam, Singapore and the US.** Anywhere else, people see a short page in Vietnamese and English instead of the chat. Travelling? Turn on the Singapore VPN.
+- **iPhones and Macs with iCloud Private Relay keep working.** The first try at this (0.3.1) blocked them, because Private Relay addresses often look like they're in another country. Now the app trusts Apple's own list of which country each Private Relay address stands for, and refreshes it every day.
+- **A quiet robot check at the family password.** Google reCAPTCHA checks in the background that a person is typing the password. There's nothing to click. If it ever says it couldn't confirm you're a person, wait a moment and try again.
+- **Search engines are asked to stay away,** so the chat's login page won't show up in Google.
+
 ## 0.9.0 (2026-11-17)
 
 - **Attach code and Jupyter notebooks.** Press the paperclip (or drop a file on the chat) to attach Python, JavaScript, TypeScript, Go, Rust, Java, C/C++, SQL, shell scripts, config files (YAML, TOML, INI) and many other code files. Markdown and plain text attach the same way as before.

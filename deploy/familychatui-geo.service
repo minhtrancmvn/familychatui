@@ -1,0 +1,10 @@
+[Unit]
+Description=familychatui: refresh the Vietnam + Singapore + US allowlist (DB-IP + iCloud Private Relay)
+Wants=network-online.target
+After=network-online.target
+
+[Service]
+Type=oneshot
+# The monthly DB-IP file is kept in /var/cache/familychatui-geo, so the daily run only fetches Apple's list.
+CacheDirectory=familychatui-geo
+ExecStart=/usr/bin/python3 /opt/familychatui/deploy/update-geo-allowlist.py

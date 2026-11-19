@@ -12,6 +12,9 @@ export const APP_VERSION = process.env.NEXT_PUBLIC_APP_VERSION ?? "";
  */
 export const GTM_ID = process.env.NEXT_PUBLIC_GTM_ID ?? "";
 
+/** reCAPTCHA v3 action name for the family password; the server checks Google's verdict carries it. */
+export const RECAPTCHA_ACTION = "login";
+
 /**
  * The desktop layout, the same rule as the `md:` variant in globals.css (change both together): wide
  * AND tall enough, so a phone on its side still gets the phone layout.
