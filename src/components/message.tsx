@@ -108,13 +108,42 @@ function SourceList({ message }: { message: Message }) {
   );
 }
 
-function AttachmentChips({ message }: { message: Message }) {
-  if (!message.attachments?.length) return null;
+/** Photos the person sent, as thumbnails. Tapping one opens it full size (the downscaled copy the model saw). */
+function SentPhotos({ photos }: { photos: Attachment[] }) {
+  const t = useT();
+  if (!photos.length) return null;
+  return (
+    <ul className="flex max-w-[85%] flex-wrap justify-end gap-1.5">
+      {photos.map((photo) => (
+        <li key={photo.id}>
+          <a
+            href={pictureUrl(photo)}
+            target="_blank"
+            rel="noopener"
+            aria-label={t("msg.openPhoto", { name: photo.name })}
+            className="block overflow-hidden rounded-2xl border border-border bg-surface-2 transition-transform active:scale-[0.98]"
+          >
+            {/* eslint-disable-next-line @next/next/no-img-element -- private photo behind the session cookie, not a static asset for the optimizer */}
+            <img
+              src={photo.preview ?? pictureUrl(photo)}
+              alt={photo.name}
+              className="block h-40 w-auto min-w-16 max-w-[min(16rem,70vw)] object-cover"
+              decoding="async"
+            />
+          </a>
+        </li>
+      ))}
+    </ul>
+  );
+}
+
+function AttachmentChips({ files }: { files: Attachment[] }) {
+  if (!files.length) return null;
   return (
     <ul className="flex flex-wrap justify-end gap-1.5">
-      {message.attachments.map((a) => (
+      {files.map((a) => (
         <li key={a.id} className="flex max-w-56 items-center gap-2 rounded-xl border border-border bg-surface px-2.5 py-1.5 text-xs">
-          {a.kind === "image" ? <ImageIcon className="size-4 shrink-0 text-muted" /> : <FileText className="size-4 shrink-0 text-muted" />}
+          <FileText className="size-4 shrink-0 text-muted" />
           <span className="truncate font-medium">{a.name}</span>
           <span className="shrink-0 text-muted">{formatBytes(a.size)}</span>
         </li>
@@ -131,9 +160,11 @@ export function ChatMessage({ chatId, message, isLatest }: { chatId: string; mes
   const [retryOpen, setRetryOpen] = useState(false);
 
   if (message.role === "user") {
+    const attachments = message.attachments ?? [];
     return (
       <div className="flex flex-col items-end gap-1.5">
-        <AttachmentChips message={message} />
+        <SentPhotos photos={attachments.filter((a) => a.kind === "image")} />
+        <AttachmentChips files={attachments.filter((a) => a.kind !== "image")} />
         {message.content && (
           <div className="max-w-[85%] whitespace-pre-wrap break-words rounded-[22px] rounded-br-md bg-bubble-user px-4 py-2.5 text-[15px] leading-6 text-bubble-user-fg">
             {message.content}

@@ -2,13 +2,17 @@
 
 import clsx from "clsx";
 import { Check, Copy } from "lucide-react";
-import { type ComponentProps, useState } from "react";
-import ReactMarkdown, { type ExtraProps } from "react-markdown";
+import "katex/dist/katex.min.css";
+import { type ComponentProps, useMemo, useState } from "react";
+import ReactMarkdown, { type ExtraProps, type Options } from "react-markdown";
 import rehypeHighlight from "rehype-highlight";
+import rehypeKatex from "rehype-katex";
 import remarkGfm from "remark-gfm";
+import remarkMath from "remark-math";
 
 import { copyText } from "@/lib/hooks";
 import { useT } from "@/lib/i18n";
+import { prepareMath } from "@/lib/math";
 
 interface HastLike {
   type: string;
@@ -64,12 +68,19 @@ function CodeBlock({ node, children }: ComponentProps<"pre"> & ExtraProps) {
   );
 }
 
+// prepareMath turns every formula into `$$`, so single dollars are always text (prices).
+const remarkPlugins: Options["remarkPlugins"] = [remarkGfm, [remarkMath, { singleDollarTextMath: false }]];
+// KaTeX runs before highlight.js, which would otherwise treat math as a code block in an unknown language.
+// strict: false lets `\text{}` hold Vietnamese without console warnings.
+const rehypePlugins: Options["rehypePlugins"] = [[rehypeKatex, { strict: false }], rehypeHighlight];
+
 export function Markdown({ text, streaming }: { text: string; streaming?: boolean }) {
+  const source = useMemo(() => prepareMath(text), [text]);
   return (
     <div className={clsx("md", streaming && "streaming")}>
       <ReactMarkdown
-        remarkPlugins={[remarkGfm]}
-        rehypePlugins={[rehypeHighlight]}
+        remarkPlugins={remarkPlugins}
+        rehypePlugins={rehypePlugins}
         components={{
           pre: CodeBlock,
           a: ({ href, children }) => (
@@ -79,7 +90,7 @@ export function Markdown({ text, streaming }: { text: string; streaming?: boolea
           ),
         }}
       >
-        {text}
+        {source}
       </ReactMarkdown>
     </div>
   );

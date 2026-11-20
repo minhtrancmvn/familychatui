@@ -55,6 +55,8 @@ export interface Attachment {
   name: string;
   size: number;
   kind: "image" | "file";
+  /** Browser only: the data: URL of a photo just sent, shown until the server has saved it. Never sent back. */
+  preview?: string;
 }
 
 /** An attachment on its way to the server: an image as a (downscaled) data: URL, a text file as its text. */

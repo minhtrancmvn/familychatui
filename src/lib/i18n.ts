@@ -125,6 +125,7 @@ const en = {
   "msg.drawing": "Drawing the picture",
   "msg.picture": "Picture made by {model}",
   "msg.openPicture": "Open the picture full size",
+  "msg.openPhoto": "Open {name} full size",
   "msg.download": "Download",
 
   "home.chattingAs": "Chatting as {name}",
@@ -373,6 +374,7 @@ const vi: Dict = {
   "msg.drawing": "Đang vẽ ảnh",
   "msg.picture": "Ảnh do {model} vẽ",
   "msg.openPicture": "Mở ảnh cỡ lớn",
+  "msg.openPhoto": "Mở {name} cỡ lớn",
   "msg.download": "Tải về",
 
   "home.chattingAs": "Hồ sơ: {name}",

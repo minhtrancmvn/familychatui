@@ -233,8 +233,20 @@ body {
   padding: 0.9em 1em;
 }
 
+/* Math (KaTeX). A formula wider than the bubble scrolls sideways instead of overflowing on a phone. */
+.md .katex {
+  font-size: 1.1em;
+  overflow-wrap: normal;
+}
+.md .katex-display {
+  margin: 0.65em 0;
+  padding: 0.2em 0;
+  overflow-x: auto;
+  overflow-y: hidden;
+}
+
 /* Blinking caret at the end of a streaming reply. */
-.md.streaming > :last-child:not(pre):not(ul):not(ol):not(table)::after {
+.md.streaming > :last-child:not(pre):not(ul):not(ol):not(table):not(.katex-display)::after {
   content: "";
   display: inline-block;
   width: 0.5em;
