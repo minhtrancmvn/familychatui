@@ -184,31 +184,37 @@ async function pictures(page, prefix) {
 }
 
 /**
- * A sent photo shows as a thumbnail (its local preview at first, the server's copy after a reload) that opens full
- * size, and a formula in the reply is drawn by KaTeX instead of showing as raw LaTeX.
+ * Sent photos show as thumbnails (their local preview at first, the server's copy after a reload) that open in a
+ * lightbox, and a formula in the reply is drawn by KaTeX instead of showing as raw LaTeX.
  */
 async function photoAndMath(page, prefix) {
   await page.goto(`${BASE}/`);
   const box = page.getByRole("textbox", { name: "Message" }).filter({ visible: true }).first();
   await box.waitFor();
-  const png = await page.evaluate(() => {
-    const c = document.createElement("canvas");
-    c.width = c.height = 64;
-    const ctx = c.getContext("2d");
-    ctx.fillStyle = "#ff5500";
-    ctx.fillRect(0, 0, 64, 64);
-    return c.toDataURL("image/png").split(",")[1];
-  });
-  await page.locator('input[type="file"]').setInputFiles({ name: "orange.png", mimeType: "image/png", buffer: Buffer.from(png, "base64") });
-  await box.fill(String.raw`What colour is this picture? Then write the area of a circle as LaTeX display math between \[ and \]. Short answer.`);
-  const thumbLoaded = () =>
-    page.waitForFunction(() => {
-      const img = document.querySelector('img[alt="orange.png"]');
-      return img && img.complete && img.naturalWidth > 0;
-    });
+  const square = (color) =>
+    page.evaluate((fill) => {
+      const c = document.createElement("canvas");
+      c.width = c.height = 64;
+      const ctx = c.getContext("2d");
+      ctx.fillStyle = fill;
+      ctx.fillRect(0, 0, 64, 64);
+      return c.toDataURL("image/png").split(",")[1];
+    }, color);
+  await page.locator('input[type="file"]').setInputFiles([
+    { name: "orange.png", mimeType: "image/png", buffer: Buffer.from(await square("#ff5500"), "base64") },
+    { name: "blue.png", mimeType: "image/png", buffer: Buffer.from(await square("#1d4ed8"), "base64") },
+  ]);
+  await box.fill(String.raw`What colours are these two pictures? Then write the area of a circle as LaTeX display math between \[ and \]. Short answer.`);
+  const thumbsLoaded = () =>
+    page.waitForFunction(() =>
+      ["orange.png", "blue.png"].every((name) => {
+        const img = document.querySelector(`a img[alt="${name}"]`);
+        return img && img.complete && img.naturalWidth > 0;
+      }),
+    );
   await send(page, box);
   await page.waitForURL("**/chat/**");
-  await thumbLoaded();
+  await thumbsLoaded();
   const done = page.getByRole("button", { name: /^(Copy|Copied)$/ }).filter({ visible: true }).last();
   await done.waitFor({ timeout: 180_000 });
   await shot(page, `${prefix}05b-photo-math`);
@@ -219,15 +225,34 @@ async function photoAndMath(page, prefix) {
   if (EXPECT_REPLY && (!drawn || broken || raw)) throw new Error(`math not drawn: katex=${drawn} errors=${broken} raw=${raw}`);
 
   await page.reload();
-  await thumbLoaded();
-  const href = await page.getByRole("link", { name: "Open orange.png full size" }).getAttribute("href");
+  await thumbsLoaded();
+  const thumb = page.getByRole("link", { name: "Open orange.png full size" });
+  const href = await thumb.getAttribute("href");
   const res = await page.request.get(`${BASE}${href}`);
   if (res.status() !== 200 || res.headers()["content-type"] !== "image/jpeg") throw new Error(`sent photo served as ${res.status()} ${res.headers()["content-type"]}`);
-  const [tab] = await Promise.all([page.waitForEvent("popup"), page.getByRole("link", { name: "Open orange.png full size" }).click()]);
-  await tab.waitForLoadState();
-  if (!tab.url().endsWith(href)) throw new Error(`photo opened ${tab.url()}`);
-  await tab.close();
-  step(`${prefix}: a sent photo shows as a thumbnail that opens full size; the reply's formula is drawn (${drawn} KaTeX)`);
+
+  // Lightbox: opens on the tapped photo, moves with the arrow button and key, closes with Escape and the X.
+  await thumb.click();
+  const lightbox = page.getByRole("dialog");
+  await lightbox.getByText("1 / 2").waitFor();
+  await page.waitForFunction(() => {
+    const img = document.querySelector('[role="dialog"] img[alt="orange.png"]');
+    return img && img.complete && img.naturalWidth > 0;
+  });
+  await shot(page, `${prefix}05c-lightbox`);
+  await lightbox.getByRole("button", { name: "Next photo" }).click();
+  await lightbox.locator('img[alt="blue.png"]').waitFor();
+  await page.keyboard.press("ArrowRight");
+  await lightbox.locator('img[alt="orange.png"]').waitFor();
+  await page.keyboard.press("Escape");
+  await lightbox.waitFor({ state: "detached" });
+  if (!(await thumb.evaluate((el) => el === document.activeElement))) throw new Error("focus didn't return to the thumbnail");
+  await page.getByRole("link", { name: "Open blue.png full size" }).click();
+  await lightbox.getByText("2 / 2").waitFor();
+  await lightbox.getByRole("button", { name: "Close" }).click();
+  await lightbox.waitFor({ state: "detached" });
+  if (page.context().pages().length !== 1) throw new Error("a tap on a thumbnail opened a new tab");
+  step(`${prefix}: sent photos show as thumbnails that open in a lightbox (arrows, Escape, X); the reply's formula is drawn (${drawn} KaTeX)`);
 }
 
 /** Analytics events pushed so far on this page (gtag-style `arguments` objects on the dataLayer). */

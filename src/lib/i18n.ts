@@ -126,6 +126,8 @@ const en = {
   "msg.picture": "Picture made by {model}",
   "msg.openPicture": "Open the picture full size",
   "msg.openPhoto": "Open {name} full size",
+  "lightbox.previous": "Previous photo",
+  "lightbox.next": "Next photo",
   "msg.download": "Download",
 
   "home.chattingAs": "Chatting as {name}",
@@ -375,6 +377,8 @@ const vi: Dict = {
   "msg.picture": "Ảnh do {model} vẽ",
   "msg.openPicture": "Mở ảnh cỡ lớn",
   "msg.openPhoto": "Mở {name} cỡ lớn",
+  "lightbox.previous": "Ảnh trước",
+  "lightbox.next": "Ảnh sau",
   "msg.download": "Tải về",
 
   "home.chattingAs": "Hồ sơ: {name}",

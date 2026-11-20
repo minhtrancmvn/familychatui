@@ -2,6 +2,12 @@
 
 Every merge to `main` deploys automatically and gets an entry here, newest first. Versions follow `package.json`: new features bump the minor number, fixes the patch number.
 
+## 0.12.0 (2026-11-20)
+
+- **Tap a photo you sent to see it big.** It opens full screen on a black background, right in the chat, instead of in a new browser tab. Tap the X, beside the photo, or press Esc to go back.
+- **Sent several photos at once?** Swipe sideways, or use the arrows, to flip through them.
+- On a computer, Ctrl-click (Cmd-click on a Mac) still opens the photo in a new tab.
+
 ## 0.11.0 (2026-11-20)
 
 - **Math shows as real formulas.** When a model writes an equation (fractions, powers, square roots, boxed answers), you now see it typeset the way it would look in a textbook, instead of a jumble of `\frac{...}` code in square brackets. Dollar amounts and percentages inside formulas come out right too. Prices in normal sentences, like "$5 and $10", stay plain text.
