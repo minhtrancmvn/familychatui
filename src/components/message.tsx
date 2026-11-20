@@ -5,6 +5,7 @@ import { ChevronDown, Download, FileText, Globe, ImageIcon, RefreshCw } from "lu
 import { useState } from "react";
 
 import { ModelAvatar } from "@/components/avatars";
+import { Lightbox } from "@/components/lightbox";
 import { CopyButton, Markdown } from "@/components/markdown";
 import { ModelMenu } from "@/components/model-menu";
 import { Popover } from "@/components/popover";
@@ -50,7 +51,7 @@ function Drawing() {
   );
 }
 
-function pictureUrl(picture: Attachment): string {
+function pictureUrl(picture: Pick<Attachment, "id">): string {
   return `/api/attachments/${picture.id}`;
 }
 
@@ -108,32 +109,46 @@ function SourceList({ message }: { message: Message }) {
   );
 }
 
-/** Photos the person sent, as thumbnails. Tapping one opens it full size (the downscaled copy the model saw). */
+/**
+ * Photos the person sent, as thumbnails. Tapping one opens it in a lightbox (the downscaled copy the model saw);
+ * Ctrl/Cmd-click or a middle click still opens it in a new tab.
+ */
 function SentPhotos({ photos }: { photos: Attachment[] }) {
   const t = useT();
+  const [open, setOpen] = useState<number | null>(null);
   if (!photos.length) return null;
+  const shown = photos.map((photo) => ({ id: photo.id, name: photo.name, src: photo.preview ?? pictureUrl(photo) }));
   return (
-    <ul className="flex max-w-[85%] flex-wrap justify-end gap-1.5">
-      {photos.map((photo) => (
-        <li key={photo.id}>
-          <a
-            href={pictureUrl(photo)}
-            target="_blank"
-            rel="noopener"
-            aria-label={t("msg.openPhoto", { name: photo.name })}
-            className="block overflow-hidden rounded-2xl border border-border bg-surface-2 transition-transform active:scale-[0.98]"
-          >
-            {/* eslint-disable-next-line @next/next/no-img-element -- private photo behind the session cookie, not a static asset for the optimizer */}
-            <img
-              src={photo.preview ?? pictureUrl(photo)}
-              alt={photo.name}
-              className="block h-40 w-auto min-w-16 max-w-[min(16rem,70vw)] object-cover"
-              decoding="async"
-            />
-          </a>
-        </li>
-      ))}
-    </ul>
+    <>
+      <ul className="flex max-w-[85%] flex-wrap justify-end gap-1.5">
+        {shown.map((photo, i) => (
+          <li key={photo.id}>
+            <a
+              href={pictureUrl(photo)}
+              target="_blank"
+              rel="noopener"
+              aria-label={t("msg.openPhoto", { name: photo.name })}
+              aria-haspopup="dialog"
+              onClick={(e) => {
+                if (e.button !== 0 || e.ctrlKey || e.metaKey || e.shiftKey || e.altKey) return;
+                e.preventDefault();
+                setOpen(i);
+              }}
+              className="block overflow-hidden rounded-2xl border border-border bg-surface-2 transition-transform active:scale-[0.98]"
+            >
+              {/* eslint-disable-next-line @next/next/no-img-element -- private photo behind the session cookie, not a static asset for the optimizer */}
+              <img
+                src={photo.src}
+                alt={photo.name}
+                className="block h-40 w-auto min-w-16 max-w-[min(16rem,70vw)] object-cover"
+                decoding="async"
+              />
+            </a>
+          </li>
+        ))}
+      </ul>
+      {open !== null && <Lightbox photos={shown} index={open} onIndex={setOpen} onClose={() => setOpen(null)} />}
+    </>
   );
 }
 

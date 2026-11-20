@@ -66,7 +66,7 @@ Private, Poe-style chat app for the owner's family. Its only model provider is a
 - Analytics: `track()` in `src/lib/analytics.ts` pushes gtag-style commands that the GA4 Google tag in the Tag Manager container sends as-is (no extra GTM tags). Event params are labels and numbers only, never text, titles, file/profile names or ids (the e2e checks this). `gtag('set', {content_group})` is ignored by the container, so chat page views stay `/chat/<id>`. New params need a GA4 custom definition to show in reports.
 - Family usage (admin Settings): `GET /api/usage?days=7|30|90&tz=<minutes>` from SQLite (`usageReport` in `src/server/repo.ts`); active profiles are a count only, by design. Chart bars use `bg-chart` (`--chart`, accent in light, `#f55200` in dark, checked with the dataviz validator).
 - Math: `prepareMath` (`src/lib/math.ts`) rewrites `\[…\]`, `\(…\)`, `$$…$$` and Pandoc-style `$…$` into `$$` for remark-math (`singleDollarTextMath: false`) and escapes every other `$`, so prices stay text. Inside math it turns bare `$`/`%` into signs (GPT writes `\frac{$1.89}{…}` and `18.71%`). rehype-katex runs before rehype-highlight. Wide formulas scroll inside `.katex-display`.
-- Photos a person sent show as thumbnails linking to `GET /api/attachments/[id]`; right after sending, the thumbnail uses the client-only `preview` data URL until the server has the upload.
+- Photos a person sent show as thumbnails linking to `GET /api/attachments/[id]`; right after sending, the thumbnail uses the client-only `preview` data URL until the server has the upload. A plain tap opens `src/components/lightbox.tsx` (solid black, arrows/keys/swipe between a message's photos, focus trapped and returned); a modified click keeps the link's new tab.
 - Web search is always on for models with `search: true` (mirrors 9router's `capabilities.search`). The model decides per question whether to search; replies that searched carry `sources`.
 - The taste skill's design rules were applied (tap targets of at least 44px on phones, press feedback, no violet, verb-plus-object buttons). Its marketing-page gate doesn't fit an app and is not run.
 
@@ -86,7 +86,7 @@ Private, Poe-style chat app for the owner's family. Its only model provider is a
 <!-- gitnexus:start -->
 # GitNexus — Code Intelligence
 
-This project is indexed by GitNexus as **familychatui** (960 symbols, 2745 relationships, 79 execution flows). Use the GitNexus MCP tools to understand code, assess impact, and navigate safely.
+This project is indexed by GitNexus as **familychatui** (1081 symbols, 3051 relationships, 89 execution flows). Use the GitNexus MCP tools to understand code, assess impact, and navigate safely.
 
 > Index stale? Run `node .gitnexus/run.cjs analyze` from the project root — it auto-selects an available runner. No `.gitnexus/run.cjs` yet? `npx gitnexus analyze` (npm 11 crash → `npm i -g gitnexus`; #1939).
 
