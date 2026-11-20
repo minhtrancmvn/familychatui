@@ -1,6 +1,6 @@
 {
   "name": "familychatui",
-  "version": "0.10.1",
+  "version": "0.11.0",
   "private": true,
   "scripts": {
     "dev": "next dev",
@@ -16,13 +16,16 @@
     "@next/third-parties": "16.4.6",
     "clsx": "^2.1.1",
     "highlight.js": "^11.12.0",
+    "katex": "0.19.1",
     "lucide-react": "^1.73.0",
     "next": "16.4.6",
     "react": "19.3.0",
     "react-dom": "19.3.0",
     "react-markdown": "^10.1.0",
     "rehype-highlight": "^7.0.2",
+    "rehype-katex": "^7.0.1",
     "remark-gfm": "^4.0.1",
+    "remark-math": "^6.0.0",
     "zustand": "^5.1.0"
   },
   "devDependencies": {
@@ -35,5 +38,8 @@
     "eslint-config-next": "16.4.6",
     "tailwindcss": "4.3.3",
     "typescript": "^5"
+  },
+  "overrides": {
+    "katex": "$katex"
   }
 }

@@ -198,8 +198,11 @@ export function sendMessage(opts: { chatId: string; text: string; modelId: strin
     modelId,
     createdAt: now,
     status: "done",
-    // Only name/size stay in the browser; the contents go to the server.
-    attachments: attachments.length ? attachments.map(({ id, name, size, kind }) => ({ id, name, size, kind })) : undefined,
+    // Only name/size stay in the browser; the contents go to the server. A photo keeps its (downscaled) data
+    // URL as a preview, because the server only has it once the upload finishes.
+    attachments: attachments.length
+      ? attachments.map(({ id, name, size, kind, data }) => ({ id, name, size, kind, ...(kind === "image" ? { preview: data } : {}) }))
+      : undefined,
   });
   state.addMessage(chatId, { id: replyId, role: "assistant", content: "", modelId, createdAt: now + 1, status: "streaming" });
   const photos = attachments.filter((a) => a.kind === "image").length;

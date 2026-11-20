@@ -47,7 +47,7 @@ function watch(page, label) {
 /**
  * Content wider than the screen. Checking the page alone isn't enough: the app scrolls inside
  * containers, so a too-wide child makes that container scroll sideways while the page looks fine.
- * Code blocks, tables and anything marked `data-scroll-x` scroll sideways on purpose.
+ * Code blocks, tables, wide formulas and anything marked `data-scroll-x` scroll sideways on purpose.
  */
 function sidewaysOverflow() {
   const vw = document.documentElement.clientWidth;
@@ -55,7 +55,7 @@ function sidewaysOverflow() {
   if (document.documentElement.scrollWidth > vw) found.push(`page ${document.documentElement.scrollWidth} > ${vw}`);
   for (const el of document.querySelectorAll("body *")) {
     if (!["auto", "scroll"].includes(getComputedStyle(el).overflowX) || el.scrollWidth <= el.clientWidth + 1) continue;
-    if (el.closest("pre, table, [data-scroll-x]")) continue;
+    if (el.closest("pre, table, .katex-display, [data-scroll-x]")) continue;
     found.push(`${el.tagName.toLowerCase()}.${String(el.className).slice(0, 50)} ${el.scrollWidth} > ${el.clientWidth}`);
   }
   return found;
@@ -181,6 +181,53 @@ async function pictures(page, prefix) {
   await page.reload();
   await picturesLoaded(page, 2);
   step(`${prefix}: the next message edited the picture; both pictures survive a reload`);
+}
+
+/**
+ * A sent photo shows as a thumbnail (its local preview at first, the server's copy after a reload) that opens full
+ * size, and a formula in the reply is drawn by KaTeX instead of showing as raw LaTeX.
+ */
+async function photoAndMath(page, prefix) {
+  await page.goto(`${BASE}/`);
+  const box = page.getByRole("textbox", { name: "Message" }).filter({ visible: true }).first();
+  await box.waitFor();
+  const png = await page.evaluate(() => {
+    const c = document.createElement("canvas");
+    c.width = c.height = 64;
+    const ctx = c.getContext("2d");
+    ctx.fillStyle = "#ff5500";
+    ctx.fillRect(0, 0, 64, 64);
+    return c.toDataURL("image/png").split(",")[1];
+  });
+  await page.locator('input[type="file"]').setInputFiles({ name: "orange.png", mimeType: "image/png", buffer: Buffer.from(png, "base64") });
+  await box.fill(String.raw`What colour is this picture? Then write the area of a circle as LaTeX display math between \[ and \]. Short answer.`);
+  const thumbLoaded = () =>
+    page.waitForFunction(() => {
+      const img = document.querySelector('img[alt="orange.png"]');
+      return img && img.complete && img.naturalWidth > 0;
+    });
+  await send(page, box);
+  await page.waitForURL("**/chat/**");
+  await thumbLoaded();
+  const done = page.getByRole("button", { name: /^(Copy|Copied)$/ }).filter({ visible: true }).last();
+  await done.waitFor({ timeout: 180_000 });
+  await shot(page, `${prefix}05b-photo-math`);
+  const reply = page.locator(".bg-bubble-bot").last();
+  const drawn = await reply.locator(".katex").count();
+  const broken = await reply.locator(".katex-error").count();
+  const raw = /\\\[|\\frac|\\pi/.test(await reply.innerText());
+  if (EXPECT_REPLY && (!drawn || broken || raw)) throw new Error(`math not drawn: katex=${drawn} errors=${broken} raw=${raw}`);
+
+  await page.reload();
+  await thumbLoaded();
+  const href = await page.getByRole("link", { name: "Open orange.png full size" }).getAttribute("href");
+  const res = await page.request.get(`${BASE}${href}`);
+  if (res.status() !== 200 || res.headers()["content-type"] !== "image/jpeg") throw new Error(`sent photo served as ${res.status()} ${res.headers()["content-type"]}`);
+  const [tab] = await Promise.all([page.waitForEvent("popup"), page.getByRole("link", { name: "Open orange.png full size" }).click()]);
+  await tab.waitForLoadState();
+  if (!tab.url().endsWith(href)) throw new Error(`photo opened ${tab.url()}`);
+  await tab.close();
+  step(`${prefix}: a sent photo shows as a thumbnail that opens full size; the reply's formula is drawn (${drawn} KaTeX)`);
 }
 
 /** Analytics events pushed so far on this page (gtag-style `arguments` objects on the dataLayer). */
@@ -413,6 +460,7 @@ async function phone(browser) {
   if (phoneHint !== "enter") throw new Error(`phone Return key hint ${phoneHint}`);
   step("m: Enter adds a new line on a phone; the Send button sends (below)");
   await chat(page, "m", "What is 2 + 3? Answer with one number.");
+  await photoAndMath(page, "m");
   if (IMAGE) await pictures(page, "m");
   // Settings is the densest screen (the admin sees every section); check it at phone width too.
   await page.goto(`${BASE}/settings`);
